@@ -4,21 +4,21 @@ import { ThemeProvider } from './theme/ThemeContext';
 import { Navbar } from './components/Navbar';
 import { CustomCursor } from './components/CustomCursor';
 import {
-  QuantumNeuralTransition,
+  CinematicFragmentationTransition,
   ViewRoute,
-} from './components/QuantumNeuralTransition';
+} from './components/CinematicFragmentationTransition';
 import { LandingPageView } from './views/LandingPageView';
 import { TextGuardView } from './views/TextGuardView';
 import { DashboardView } from './views/DashboardView';
 import { EvaluationView } from './views/EvaluationView';
 
-// Fluid Quantum Neural Spatial Transition Variants
+// Cinematic incoming/outgoing page variants synchronized with fragmentation
 const pageTransition = {
   initial: {
     opacity: 0,
-    y: 14,
-    scale: 0.985,
-    filter: 'blur(6px)',
+    y: 20,
+    scale: 0.98,
+    filter: 'blur(8px)',
   },
   animate: {
     opacity: 1,
@@ -26,20 +26,19 @@ const pageTransition = {
     scale: 1,
     filter: 'blur(0px)',
     transition: {
-      duration: 0.44,
+      duration: 0.52,
       ease: [0.16, 1, 0.3, 1],
-      staggerChildren: 0.05,
-      delayChildren: 0.04,
+      staggerChildren: 0.08,
+      delayChildren: 0.06,
     },
   },
   exit: {
     opacity: 0,
-    y: -10,
-    scale: 0.975,
-    filter: 'blur(8px)',
+    scale: 0.96,
+    filter: 'blur(10px)',
     transition: {
-      duration: 0.28,
-      ease: [0.32, 0, 0.67, 0],
+      duration: 0.32,
+      ease: [0.4, 0, 0.2, 1],
     },
   },
 };
@@ -152,8 +151,8 @@ export function AppContent() {
       {/* Desktop Cinematic Multi-Ring & Particle Cursor */}
       <CustomCursor />
 
-      {/* Quantum Neural Spatial Transition Overlay */}
-      <QuantumNeuralTransition
+      {/* Cinematic Breakup / Fragmentation Overlay */}
+      <CinematicFragmentationTransition
         isTransitioning={isTransitioning}
         fromView={fromView}
         toView={toView}

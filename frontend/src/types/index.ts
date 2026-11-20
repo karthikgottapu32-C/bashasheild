@@ -121,13 +121,6 @@ export interface EvaluationMetrics {
   per_script: Record<string, MetricSlice>;
   per_category: Record<string, MetricSlice>;
   per_channel: Record<string, MetricSlice>;
-  latency_profile?: {
-    mean_ms: number;
-    median_p50_ms: number;
-    p95_ms: number;
-    p99_ms: number;
-    max_ms: number;
-  };
   evaluated_at: string;
   model_evaluated: string;
   is_synthetic: boolean;

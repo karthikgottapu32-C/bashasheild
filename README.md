@@ -26,10 +26,10 @@ BhashaShield is an enterprise-grade AI security platform designed to detect and 
   - 96.0% Precision, 100% Recall, 0.9796 F1 score on unseen held-out test data.
   - Empirical Hardware Inference Latency Profiling with sub-50ms SLA.
 - **Cinematic Web Experience**:
-  - Flagship Default Theme: **Titanium Intelligence** (`#0B0E14` / `#E6EBF2` / `#38BDF8`).
-  - 10 selectable color palettes (Titanium Intelligence, Quantum Atmosphere, Arctic Neural, Midnight Lime, Navy Coral, Forest Green, Electric Purple, Original Cyber, Obsidian Lime, Indigo Ice).
+  - Flagship Default Theme: **AI LAB — INDIGO ICE** (`#090D1C` / `#EAF4FF` / `#36E4FF`).
+  - Preserved Color Palettes: 7 total (Midnight Lime, Navy Coral, Forest Green, Electric Purple, Original Cyber, Obsidian Lime, Indigo Ice).
   - Interactive Three.js WebGL reactive neural intelligence core (`CyberShield3D`).
-  - Quantum Neural Spatial Depth transitions (650ms fluid warp with HUD telemetry).
+  - Cinematic breakup and geometric fragmentation transitions (`CinematicFragmentationTransition`).
   - Hardware-accelerated custom cursor with physics lerp and particle trail.
 - **Developer SDKs**:
   - Official Python SDK (`sdk/python/bhashashield.py`)

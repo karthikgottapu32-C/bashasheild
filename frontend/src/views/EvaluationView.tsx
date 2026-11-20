@@ -217,61 +217,6 @@ export const EvaluationView: React.FC = () => {
         </div>
       </div>
 
-      {/* Hardware Inference Latency Profiling Bar */}
-      <div className="p-4 rounded-2xl glass-panel border border-[var(--theme-accent)]/20 shadow-lg relative overflow-hidden">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-xl bg-[var(--theme-accent)]/10 border border-[var(--theme-accent)]/30 text-[var(--theme-accent)]">
-              <Cpu className="w-5 h-5" />
-            </div>
-            <div>
-              <div className="text-xs font-bold uppercase tracking-wider text-white flex items-center gap-2">
-                <span>Inference Latency Profile</span>
-                <span className="px-2 py-0.5 rounded-full text-[9px] font-mono font-bold bg-status-emerald/15 text-status-emerald border border-status-emerald/30">
-                  Sub-50ms SLA
-                </span>
-              </div>
-              <div className="text-[11px] text-txt-secondary">
-                Measured end-to-end pipeline execution time on synthetic test set
-              </div>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-5 gap-3 font-mono text-center">
-            <div className="px-3 py-1.5 rounded-lg bg-black/40 border border-white/5">
-              <div className="text-[9px] uppercase tracking-wider text-txt-muted">Mean</div>
-              <div className="text-sm font-bold text-[var(--theme-accent)]">
-                {metrics.latency_profile?.mean_ms != null ? `${metrics.latency_profile.mean_ms}ms` : '12.4ms'}
-              </div>
-            </div>
-            <div className="px-3 py-1.5 rounded-lg bg-black/40 border border-white/5">
-              <div className="text-[9px] uppercase tracking-wider text-txt-muted">P50 (Median)</div>
-              <div className="text-sm font-bold text-white">
-                {metrics.latency_profile?.median_p50_ms != null ? `${metrics.latency_profile.median_p50_ms}ms` : '9.8ms'}
-              </div>
-            </div>
-            <div className="px-3 py-1.5 rounded-lg bg-black/40 border border-white/5">
-              <div className="text-[9px] uppercase tracking-wider text-txt-muted">P95</div>
-              <div className="text-sm font-bold text-status-emerald">
-                {metrics.latency_profile?.p95_ms != null ? `${metrics.latency_profile.p95_ms}ms` : '21.2ms'}
-              </div>
-            </div>
-            <div className="px-3 py-1.5 rounded-lg bg-black/40 border border-white/5">
-              <div className="text-[9px] uppercase tracking-wider text-txt-muted">P99</div>
-              <div className="text-sm font-bold text-status-amber">
-                {metrics.latency_profile?.p99_ms != null ? `${metrics.latency_profile.p99_ms}ms` : '34.6ms'}
-              </div>
-            </div>
-            <div className="px-3 py-1.5 rounded-lg bg-black/40 border border-white/5">
-              <div className="text-[9px] uppercase tracking-wider text-txt-muted">Max</div>
-              <div className="text-sm font-bold text-white/80">
-                {metrics.latency_profile?.max_ms != null ? `${metrics.latency_profile.max_ms}ms` : '48.1ms'}
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
       {/* Main Charts & Confusion Matrix Row */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
         {/* Slice Performance Bar Chart */}
@@ -287,12 +232,12 @@ export const EvaluationView: React.FC = () => {
             </div>
 
             {/* Filter buttons */}
-            <div className="flex items-center gap-1.5 bg-black/40 p-1 rounded-xl border border-white/10 text-xs">
+            <div className="flex items-center gap-1.5 bg-bg-midnight/80 p-1 rounded-xl border border-white/10 text-xs">
               <button
                 onClick={() => setActiveFilter('language')}
                 className={`px-3 py-1 rounded-lg transition-all ${
                   activeFilter === 'language'
-                    ? 'bg-[var(--theme-accent)] text-black font-bold shadow-[0_0_12px_rgba(var(--theme-accent-rgb),0.3)]'
+                    ? 'bg-cyan text-bg-midnight font-bold shadow'
                     : 'text-txt-secondary hover:text-white'
                 }`}
               >
@@ -302,7 +247,7 @@ export const EvaluationView: React.FC = () => {
                 onClick={() => setActiveFilter('script')}
                 className={`px-3 py-1 rounded-lg transition-all ${
                   activeFilter === 'script'
-                    ? 'bg-[var(--theme-accent)] text-black font-bold shadow-[0_0_12px_rgba(var(--theme-accent-rgb),0.3)]'
+                    ? 'bg-cyan text-bg-midnight font-bold shadow'
                     : 'text-txt-secondary hover:text-white'
                 }`}
               >
@@ -312,7 +257,7 @@ export const EvaluationView: React.FC = () => {
                 onClick={() => setActiveFilter('channel')}
                 className={`px-3 py-1 rounded-lg transition-all ${
                   activeFilter === 'channel'
-                    ? 'bg-[var(--theme-accent)] text-black font-bold shadow-[0_0_12px_rgba(var(--theme-accent-rgb),0.3)]'
+                    ? 'bg-cyan text-bg-midnight font-bold shadow'
                     : 'text-txt-secondary hover:text-white'
                 }`}
               >
@@ -421,7 +366,7 @@ export const EvaluationView: React.FC = () => {
           </div>
 
           <div className="p-3 rounded-xl bg-bg-midnight/70 border border-white/5 text-xs text-txt-secondary leading-relaxed">
-            Evaluated on <span className="font-mono text-[var(--theme-accent)]">{metrics.evaluated_at.split('T')[0]}</span> using strict template family partitioning.
+            Evaluated on <span className="font-mono text-cyan">{metrics.evaluated_at.split('T')[0]}</span> using strict template family partitioning.
           </div>
         </div>
       </div>

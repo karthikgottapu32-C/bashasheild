@@ -87,7 +87,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   if (loading) {
     return (
       <div className="min-h-screen pt-28 flex flex-col items-center justify-center text-center">
-        <RefreshCw className="w-8 h-8 animate-spin text-[var(--theme-accent)] mb-3" />
+        <RefreshCw className="w-8 h-8 animate-spin text-cyan mb-3" />
         <p className="text-sm font-mono text-txt-secondary">Connecting to Security Intelligence Console...</p>
       </div>
     );
@@ -123,9 +123,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     : scans.filter(s => s.risk_level === filterRisk);
 
   return (
-    <div className="min-h-screen pt-20 pb-16 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto space-y-6">
+    <div className="min-h-screen pt-20 pb-16 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
       {/* Console Title Bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
         <div>
           <div className="flex items-center gap-2 mb-1">
             <span className="w-2 h-2 rounded-full bg-status-emerald animate-pulse" />
@@ -137,7 +137,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             </span>
           </div>
           <h1 className="text-2xl sm:text-3xl font-extrabold text-white flex items-center gap-3">
-            <LayoutDashboard className="w-7 h-7 text-[var(--theme-accent)]" />
+            <LayoutDashboard className="w-7 h-7 text-cyan" />
             Security Intelligence Console
           </h1>
         </div>
@@ -207,12 +207,12 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             <div className="text-[10px] text-txt-muted mt-1">Medium to Critical risk</div>
           </div>
 
-          <div className="glass-panel p-4 rounded-xl border border-[var(--theme-accent)]/30">
-            <div className="text-[11px] font-mono uppercase tracking-wider text-[var(--theme-accent)] mb-1 flex items-center gap-1">
+          <div className="glass-panel p-4 rounded-xl border border-cyan/30">
+            <div className="text-[11px] font-mono uppercase tracking-wider text-cyan mb-1 flex items-center gap-1">
               <Cpu className="w-3.5 h-3.5" />
               Prompt Injections
             </div>
-            <div className="text-2xl font-extrabold font-mono text-[var(--theme-accent)]">
+            <div className="text-2xl font-extrabold font-mono text-cyan">
               {stats.prompt_injection_count}
             </div>
             <div className="text-[10px] text-txt-muted mt-1">AI instruction hijacking</div>
@@ -346,7 +346,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               </div>
               <button
                 onClick={onNavigateToTextGuard}
-                className="text-xs font-semibold text-[var(--theme-accent)] hover:underline"
+                className="text-xs font-semibold text-cyan hover:underline"
               >
                 Launch Text Guard →
               </button>
@@ -367,7 +367,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 <tbody className="divide-y divide-white/5 font-mono">
                   {stats.recent_scans.map((s) => (
                     <tr key={s.id} className="hover:bg-white/[0.02] transition-colors">
-                      <td className="py-3 px-3 text-[var(--theme-accent)]">{s.id.substring(0, 12)}</td>
+                      <td className="py-3 px-3 text-cyan">{s.id.substring(0, 12)}</td>
                       <td className="py-3 px-3 font-sans max-w-xs truncate text-txt-primary">
                         {s.text_preview}
                       </td>
@@ -434,15 +434,15 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 Classification between machine attacks and human social engineering
               </p>
               <div className="space-y-3 pt-4">
-                <div className="p-4 rounded-xl bg-[var(--theme-accent)]/10 border border-[var(--theme-accent)]/30 flex items-center justify-between">
+                <div className="p-4 rounded-xl bg-cyan/10 border border-cyan/30 flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <Cpu className="w-6 h-6 text-[var(--theme-accent)]" />
+                    <Cpu className="w-6 h-6 text-cyan" />
                     <div>
                       <div className="text-sm font-bold text-white">AI Assistant Target</div>
                       <div className="text-xs text-txt-secondary">Prompt injection, jailbreaks, data exfiltration</div>
                     </div>
                   </div>
-                  <div className="text-2xl font-mono font-extrabold text-[var(--theme-accent)]">
+                  <div className="text-2xl font-mono font-extrabold text-cyan">
                     {stats.target_distribution["AI_SYSTEM"] || 0}
                   </div>
                 </div>
@@ -478,24 +478,24 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="p-4 rounded-xl bg-black/40 border border-[var(--theme-accent)]/30 space-y-2">
-              <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-[var(--theme-accent)]/15 text-[var(--theme-accent)]">Active Phase 1</span>
+            <div className="p-4 rounded-xl bg-bg-midnight/70 border border-cyan/30 space-y-2">
+              <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-cyan/15 text-cyan">Active Phase 1</span>
               <h4 className="text-sm font-bold text-white">Telugu (తెలుగు) & Romanized</h4>
               <p className="text-xs text-txt-secondary">
                 Comprehensive native script detection and Romanized Telugu phonetics ("cheyyi", "marchipo", "bayataku cheppu").
               </p>
             </div>
 
-            <div className="p-4 rounded-xl bg-black/40 border border-[var(--theme-accent)]/30 space-y-2">
-              <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-[var(--theme-accent)]/15 text-[var(--theme-accent)]">Active Phase 1</span>
+            <div className="p-4 rounded-xl bg-bg-midnight/70 border border-cyan/30 space-y-2">
+              <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-cyan/15 text-cyan">Active Phase 1</span>
               <h4 className="text-sm font-bold text-white">Hindi (हिन्दी) & Romanized</h4>
               <p className="text-xs text-txt-secondary">
                 Devanagari script injection detection and Romanized Hindi phonetics ("bhool jao", "nirdesh", "bina rules").
               </p>
             </div>
 
-            <div className="p-4 rounded-xl bg-black/40 border border-[var(--theme-accent)]/30 space-y-2">
-              <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-[var(--theme-accent)]/15 text-[var(--theme-accent)]">Active Phase 1</span>
+            <div className="p-4 rounded-xl bg-bg-midnight/70 border border-cyan/30 space-y-2">
+              <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-cyan/15 text-cyan">Active Phase 1</span>
               <h4 className="text-sm font-bold text-white">English & Code-Mixed</h4>
               <p className="text-xs text-txt-secondary">
                 Direct injection attacks, DAN persona overrides, and cross-lingual code-mixed payloads (e.g. English + Hindi).
@@ -522,7 +522,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               <select
                 value={filterRisk}
                 onChange={(e) => setFilterRisk(e.target.value)}
-                className="bg-bg-dark border border-white/15 rounded-lg px-3 py-1.5 text-xs text-txt-primary focus:outline-none focus:border-[var(--theme-accent)]"
+                className="bg-bg-dark border border-white/15 rounded-lg px-3 py-1.5 text-xs text-txt-primary focus:outline-none focus:border-cyan"
               >
                 <option value="ALL">All Risk Levels</option>
                 <option value="CRITICAL">Critical</option>
@@ -557,7 +557,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               <tbody className="divide-y divide-white/5 font-mono">
                 {filteredScans.map((s) => (
                   <tr key={s.id} className="hover:bg-white/[0.02]">
-                    <td className="py-3 px-3 text-[var(--theme-accent)]">{s.id}</td>
+                    <td className="py-3 px-3 text-cyan">{s.id}</td>
                     <td className="py-3 px-3 text-txt-muted">{s.timestamp.split('T')[0]}</td>
                     <td className="py-3 px-3 font-sans max-w-sm truncate text-txt-primary">
                       {s.text_preview}

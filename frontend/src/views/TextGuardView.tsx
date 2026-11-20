@@ -151,7 +151,7 @@ export const TextGuardView: React.FC = () => {
       {/* Header section */}
       <div className="mb-8">
         <div className="flex items-center gap-2 mb-2">
-          <span className="px-2.5 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider bg-[var(--theme-accent)]/10 text-[var(--theme-accent)] border border-[var(--theme-accent)]/30">
+          <span className="px-2.5 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider bg-cyan/10 text-cyan border border-cyan/30">
             Phase 1 Active Module
           </span>
           <span className="text-xs text-txt-secondary font-mono">
@@ -159,7 +159,7 @@ export const TextGuardView: React.FC = () => {
           </span>
         </div>
         <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-white flex items-center gap-3">
-          <ShieldAlert className="w-9 h-9 text-[var(--theme-accent)]" />
+          <ShieldAlert className="w-9 h-9 text-cyan" />
           Text Guard — Security Scanner
         </h1>
         <p className="text-txt-secondary text-sm sm:text-base mt-2 max-w-3xl">
@@ -180,7 +180,7 @@ export const TextGuardView: React.FC = () => {
                 <select
                   value={channel}
                   onChange={(e) => setChannel(e.target.value as InputChannel)}
-                  className="bg-bg-dark border border-white/15 rounded-lg px-3 py-1.5 text-xs text-txt-primary focus:outline-none focus:border-[var(--theme-accent)] transition-colors"
+                  className="bg-bg-dark border border-white/15 rounded-lg px-3 py-1.5 text-xs text-txt-primary focus:outline-none focus:border-cyan transition-colors"
                 >
                   <option value="General Text">General Text</option>
                   <option value="UPI Remark">UPI Remark</option>
@@ -197,7 +197,7 @@ export const TextGuardView: React.FC = () => {
                 <select
                   value={languageHint}
                   onChange={(e) => setLanguageHint(e.target.value)}
-                  className="bg-bg-dark border border-white/15 rounded-lg px-3 py-1.5 text-xs text-txt-primary focus:outline-none focus:border-[var(--theme-accent)] transition-colors"
+                  className="bg-bg-dark border border-white/15 rounded-lg px-3 py-1.5 text-xs text-txt-primary focus:outline-none focus:border-cyan transition-colors"
                 >
                   <option value="auto">Auto-Detect</option>
                   <option value="te">Telugu (తెలుగు)</option>
@@ -302,7 +302,7 @@ export const TextGuardView: React.FC = () => {
             <div className="glass-panel rounded-2xl p-5 border border-white/10">
               <div className="flex items-center justify-between mb-3">
                 <h3 className="text-xs font-bold uppercase tracking-wider text-txt-secondary flex items-center gap-2">
-                  <Clock className="w-3.5 h-3.5 text-[var(--theme-accent)]" />
+                  <Clock className="w-3.5 h-3.5 text-cyan" />
                   Recent Session Scans ({localHistory.length})
                 </h3>
                 <button
@@ -321,7 +321,7 @@ export const TextGuardView: React.FC = () => {
                       setResult(item);
                       setInputText(item.text_preview);
                     }}
-                    className="p-3 rounded-xl bg-black/40 hover:bg-black/60 border border-white/5 hover:border-[var(--theme-accent)]/30 cursor-pointer transition-all flex items-center justify-between text-xs"
+                    className="p-3 rounded-xl bg-bg-midnight/50 hover:bg-bg-midnight border border-white/5 hover:border-cyan/30 cursor-pointer transition-all flex items-center justify-between text-xs"
                   >
                     <div className="truncate max-w-[70%]">
                       <p className="font-mono text-txt-primary truncate">{item.text_preview}</p>
@@ -493,7 +493,7 @@ export const TextGuardView: React.FC = () => {
                     <span className="text-txt-secondary">{result.model_status}</span>
                   </div>
                   <div>
-                    Confidence: <span className="text-[var(--theme-accent)] font-bold">{Math.round(result.confidence * 100)}%</span>
+                    Confidence: <span className="text-cyan font-bold">{Math.round(result.confidence * 100)}%</span>
                   </div>
                 </div>
               </motion.div>
