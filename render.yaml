@@ -1,0 +1,19 @@
+services:
+  # BhashaShield Backend Intelligence Engine
+  - type: web
+    name: bhashashield-backend
+    env: docker
+    dockerfilePath: backend/Dockerfile
+    dockerContext: .
+    plan: free
+    region: oregon
+    healthCheckPath: /v1/health
+    envVars:
+      - key: ENVIRONMENT
+        value: production
+      - key: CORS_ORIGINS
+        value: "*"
+      - key: RATE_LIMIT_PER_MINUTE
+        value: "120"
+      - key: ADMIN_API_KEY
+        generateValue: true

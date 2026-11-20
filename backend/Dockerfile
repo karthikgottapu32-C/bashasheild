@@ -1,30 +1,46 @@
 FROM python:3.11-slim AS base
 
-# Install curl for healthcheck
+# Install curl for container healthcheck
 RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-# Install Python dependencies
-COPY backend/requirements.txt /app/backend/requirements.txt
-RUN pip install --no-cache-dir -r /app/backend/requirements.txt
+# Dual-context support:
+# 1. Render Root Directory set to 'backend' (context: backend/) -> requirements.txt is at context root
+# 2. Repo Root context (context: .) -> requirements.txt is at backend/requirements.txt
+COPY requirements.txt* backend/requirements.txt* ./
+RUN if [ -f requirements.txt ]; then \
+        pip install --no-cache-dir -r requirements.txt; \
+    elif [ -f backend/requirements.txt ]; then \
+        pip install --no-cache-dir -r backend/requirements.txt; \
+    fi
 
 # Copy application source and data
-COPY backend /app/backend
+COPY . ./
 
-# Create data directory with permissions for persistent SQLite and model files
-RUN mkdir -p /app/backend/data
+# Normalize layout: if copied from repo root, flatten backend/* to /app
+RUN if [ -d backend/app ]; then \
+        cp -rn backend/* ./ && rm -rf backend; \
+    fi
 
-ENV PYTHONPATH="/app/backend"
+# Ensure data directory exists with write permissions for SQLite runtime
+RUN mkdir -p /app/data
+
+# Maintain backwards-compatibility alias for /app/backend/data
+RUN mkdir -p /app/backend && ln -s /app/data /app/backend/data 2>/dev/null || true
+
+ENV PYTHONPATH="/app:/app/backend"
 ENV HOST="0.0.0.0"
 ENV PORT=8000
 ENV ENVIRONMENT="production"
-ENV DATABASE_PATH="/app/backend/data/bhashashield.db"
-ENV MODEL_PATH="/app/backend/data/muril_classifier.joblib"
+ENV DATABASE_PATH="/app/data/bhashashield.db"
+ENV MODEL_PATH="/app/data/muril_classifier.joblib"
 
 EXPOSE 8000
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-  CMD curl -f http://127.0.0.1:8000/v1/health || exit 1
+  CMD curl -f http://127.0.0.1:${PORT:-8000}/v1/health || exit 1
 
-CMD ["python", "-m", "uvicorn", "app.main:app", "--app-dir", "backend", "--host", "0.0.0.0", "--port", "8000", "--workers", "2"]
+# Render dynamically injects $PORT (e.g. 10000). Using sh -c expands ${PORT:-8000} properly.
+# 1 worker process consumes ~135MB RAM, safely below Render's 512MB free/starter tier limit.
+CMD ["sh", "-c", "python -m uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000} --workers 1"]
