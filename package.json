@@ -1,0 +1,27 @@
+{
+  "name": "bhashashield",
+  "version": "1.0.0",
+  "description": "AI-Powered Multilingual Security Intelligence Platform",
+  "scripts": {
+    "dev:frontend": "cd frontend && npm run dev",
+    "dev:backend": "uvicorn backend.app.main:app --host 127.0.0.1 --port 8000 --reload",
+    "build:frontend": "cd frontend && npm run build",
+    "test:backend": "pytest backend/app/tests -v",
+    "train:model": "python -m backend.app.ml.train",
+    "eval:model": "python -m backend.app.ml.evaluate"
+  },
+  "keywords": [
+    "ai-security",
+    "prompt-injection",
+    "multilingual",
+    "telugu",
+    "hindi",
+    "romanized",
+    "cybersecurity",
+    "muril",
+    "fastapi",
+    "threejs"
+  ],
+  "author": "BhashaShield Engineering Team",
+  "license": "Apache-2.0"
+}

@@ -1,0 +1,184 @@
+{
+  "precision": 0.96,
+  "recall": 1.0,
+  "f1_score": 0.9796,
+  "false_positive_rate": 0.2,
+  "prompt_injection_precision": 0.68,
+  "prompt_injection_recall": 1.0,
+  "prompt_injection_f1": 0.8095,
+  "total_samples": 580,
+  "confusion_matrix": {
+    "true_positives": 480,
+    "false_positives": 20,
+    "false_negatives": 0,
+    "true_negatives": 80
+  },
+  "latency_profile": {
+    "mean_ms": 4.97,
+    "median_p50_ms": 2.5,
+    "p95_ms": 12.19,
+    "p99_ms": 22.68,
+    "max_ms": 55.72
+  },
+  "per_language": {
+    "en": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1_score": 1.0,
+      "false_positive_rate": 0.0,
+      "samples": 120
+    },
+    "hi-Latn": {
+      "precision": 0.8,
+      "recall": 1.0,
+      "f1_score": 0.8889,
+      "false_positive_rate": 1.0,
+      "samples": 100
+    },
+    "te-Latn": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1_score": 1.0,
+      "false_positive_rate": 0.0,
+      "samples": 100
+    },
+    "hi": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1_score": 1.0,
+      "false_positive_rate": 0.0,
+      "samples": 100
+    },
+    "mixed": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1_score": 1.0,
+      "false_positive_rate": 0.0,
+      "samples": 60
+    },
+    "te": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1_score": 1.0,
+      "false_positive_rate": 0.0,
+      "samples": 100
+    }
+  },
+  "per_script": {
+    "Latin": {
+      "precision": 0.9375,
+      "recall": 1.0,
+      "f1_score": 0.9677,
+      "false_positive_rate": 0.3333,
+      "samples": 360
+    },
+    "Devanagari": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1_score": 1.0,
+      "false_positive_rate": 0.0,
+      "samples": 100
+    },
+    "Telugu": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1_score": 1.0,
+      "false_positive_rate": 0.0,
+      "samples": 100
+    },
+    "Telugu + Latin": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1_score": 1.0,
+      "false_positive_rate": 0.0,
+      "samples": 20
+    }
+  },
+  "per_category": {
+    "DATA_EXFILTRATION": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1_score": 1.0,
+      "false_positive_rate": 0.0,
+      "samples": 140
+    },
+    "BENIGN": {
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1_score": 0.0,
+      "false_positive_rate": 0.2,
+      "samples": 100
+    },
+    "PROMPT_INJECTION": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1_score": 1.0,
+      "false_positive_rate": 0.0,
+      "samples": 340
+    }
+  },
+  "per_channel": {
+    "General Text": {
+      "precision": 0.9646,
+      "recall": 1.0,
+      "f1_score": 0.982,
+      "false_positive_rate": 0.25,
+      "samples": 125
+    },
+    "UPI Remark": {
+      "precision": 0.963,
+      "recall": 1.0,
+      "f1_score": 0.9811,
+      "false_positive_rate": 0.1905,
+      "samples": 125
+    },
+    "Email": {
+      "precision": 0.9593,
+      "recall": 1.0,
+      "f1_score": 0.9793,
+      "false_positive_rate": 0.2174,
+      "samples": 141
+    },
+    "WhatsApp": {
+      "precision": 0.9685,
+      "recall": 1.0,
+      "f1_score": 0.984,
+      "false_positive_rate": 0.2,
+      "samples": 143
+    },
+    "SMS": {
+      "precision": 0.8966,
+      "recall": 1.0,
+      "f1_score": 0.9455,
+      "false_positive_rate": 0.15,
+      "samples": 46
+    }
+  },
+  "per_attack_family": {
+    "FAM_MAL_EXFIL_SECRETS": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1_score": 1.0,
+      "false_positive_rate": 0.0,
+      "samples": 140
+    },
+    "FAM_BEN_CUSTOMER_SUPPORT": {
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1_score": 0.0,
+      "false_positive_rate": 0.2,
+      "samples": 100
+    },
+    "FAM_MAL_OVERRIDE_DIRECT": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1_score": 1.0,
+      "false_positive_rate": 0.0,
+      "samples": 340
+    }
+  },
+  "evaluated_at": "2026-11-20T11:01:47.063232Z",
+  "model_evaluated": "BhashaShield Hybrid Engine (ACTIVE: BhashaShield-MuRIL-v1 (scikit-learn))",
+  "is_synthetic": true,
+  "disclaimer": "Results are measured on an unseen synthetic evaluation test set (zero template leakage) and do not establish real-world detection performance."
+}

@@ -1,0 +1,163 @@
+from pydantic import BaseModel, Field, ConfigDict
+from typing import List, Optional, Dict, Any
+from enum import Enum
+from datetime import datetime
+
+class BaseModelConfig(BaseModel):
+    model_config = ConfigDict(protected_namespaces=())
+
+class InputChannel(str, Enum):
+    UPI_REMARK = "UPI Remark"
+    SMS = "SMS"
+    WHATSAPP = "WhatsApp"
+    EMAIL = "Email"
+    GENERAL_TEXT = "General Text"
+
+class RiskLevel(str, Enum):
+    LOW = "LOW"
+    MEDIUM = "MEDIUM"
+    HIGH = "HIGH"
+    CRITICAL = "CRITICAL"
+
+class ThreatCategory(str, Enum):
+    PROMPT_INJECTION = "PROMPT_INJECTION"
+    INSTRUCTION_OVERRIDE = "INSTRUCTION_OVERRIDE"
+    JAILBREAK = "JAILBREAK"
+    DATA_EXFILTRATION = "DATA_EXFILTRATION"
+    SOCIAL_ENGINEERING = "SOCIAL_ENGINEERING"
+    PHISHING = "PHISHING"
+    FINANCIAL_MANIPULATION = "FINANCIAL_MANIPULATION"
+    SENSITIVE_INFO_EXPOSURE = "SENSITIVE_INFO_EXPOSURE"
+    BENIGN = "BENIGN"
+
+class TargetType(str, Enum):
+    AI_SYSTEM = "AI_SYSTEM"
+    HUMAN_USER = "HUMAN_USER"
+    BOTH = "BOTH"
+    NONE = "NONE"
+
+class HighlightedSpan(BaseModelConfig):
+    start: int = Field(..., description="0-indexed start character offset in original text")
+    end: int = Field(..., description="0-indexed end character offset in original text")
+    text: str = Field(..., description="Exact matched substring")
+    category: str = Field(..., description="Threat category for this span")
+    severity: str = Field(..., description="Severity level")
+    rule_id: str = Field(..., description="Rule ID that triggered this span")
+    description: str = Field(..., description="Human-readable rule explanation")
+
+class RuleFinding(BaseModelConfig):
+    rule_id: str
+    rule_name: str
+    category: str
+    target_type: str
+    severity: str
+    matched_text: str
+    evidence: str
+    span: Dict[str, int]
+
+class ModelFinding(BaseModelConfig):
+    predicted_class: str
+    probability: float
+    is_malicious: bool
+    model_name: str
+    probabilities_by_class: Optional[Dict[str, float]] = None
+
+class AnalyzeRequest(BaseModelConfig):
+    text: str = Field(..., min_length=1, max_length=10000, description="Input text to scan for security threats")
+    language_hint: Optional[str] = Field("auto", description="Optional language hint (auto, te, hi, en, te-Latn, hi-Latn)")
+    channel: Optional[InputChannel] = Field(InputChannel.GENERAL_TEXT, description="Input delivery channel")
+    save_to_history: Optional[bool] = Field(True, description="Privacy toggle: if false, scan text and findings are not persisted")
+
+class AnalyzeResponse(BaseModelConfig):
+    scan_id: str
+    timestamp: str
+    text_preview: str
+    detected_language: str
+    detected_script: str
+    language_code: str
+    script_confidence: float
+    threat_categories: List[str]
+    primary_threat: Optional[str] = None
+    target_type: str
+    risk_score: float = Field(..., ge=0.0, le=100.0)
+    risk_level: RiskLevel
+    highlighted_spans: List[HighlightedSpan]
+    matching_evidence: List[str]
+    rule_findings: List[RuleFinding]
+    model_findings: Optional[ModelFinding] = None
+    confidence: float = Field(..., ge=0.0, le=1.0)
+    uncertainty: float = Field(..., ge=0.0, le=1.0)
+    model_status: str
+    recommended_actions: List[str]
+    explanation: str
+    channel: str
+
+class ScanRecord(BaseModelConfig):
+    id: str
+    timestamp: str
+    channel: str
+    language: str
+    script: str
+    risk_score: float
+    risk_level: str
+    primary_threat: Optional[str]
+    threat_categories: List[str]
+    target_type: str
+    text_preview: str
+    is_saved: bool
+
+class DashboardStats(BaseModelConfig):
+    total_scans: int
+    threat_count: int
+    prompt_injection_count: int
+    high_risk_count: int
+    clean_count: int
+    risk_distribution: Dict[str, int]
+    language_distribution: Dict[str, int]
+    threat_distribution: Dict[str, int]
+    channel_distribution: Dict[str, int]
+    target_distribution: Dict[str, int]
+    recent_scans: List[ScanRecord]
+
+class EvaluationMetrics(BaseModelConfig):
+    precision: float
+    recall: float
+    f1_score: float
+    false_positive_rate: float
+    prompt_injection_precision: float
+    prompt_injection_recall: float
+    prompt_injection_f1: float
+    total_samples: int
+    per_language: Dict[str, Dict[str, float]]
+    per_category: Dict[str, Dict[str, float]]
+    per_script: Dict[str, Dict[str, float]]
+    per_channel: Dict[str, Dict[str, float]]
+    confusion_matrix: Dict[str, int]
+    evaluated_at: str
+    model_evaluated: str
+    is_synthetic: bool = True
+    disclaimer: str = "Results are measured on a synthetic evaluation dataset and do not establish real-world detection performance."
+
+class PolicyDecision(str, Enum):
+    ALLOW = "ALLOW"
+    REVIEW = "REVIEW"
+    BLOCK = "BLOCK"
+
+class GuardDecisionRequest(BaseModelConfig):
+    prompt: str = Field(..., min_length=1, max_length=10000, description="Input text or prompt to guard")
+    context: Optional[str] = Field(None, description="Optional RAG context or document content")
+    session_id: Optional[str] = Field(None, description="Optional session or user identifier")
+    channel: Optional[InputChannel] = Field(InputChannel.GENERAL_TEXT, description="Input channel")
+
+class GuardDecisionResponse(BaseModelConfig):
+    decision: PolicyDecision
+    risk_score: float = Field(..., ge=0.0, le=100.0)
+    risk_level: RiskLevel
+    primary_threat: Optional[str] = None
+    target_type: str
+    reason: str
+    action_required: str
+    latency_ms: float
+    scan_id: str
+    model_status: str
+

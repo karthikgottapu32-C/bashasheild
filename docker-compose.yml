@@ -1,0 +1,60 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: bhashashield-backend
+    restart: unless-stopped
+    environment:
+      - HOST=0.0.0.0
+      - PORT=8000
+      - ENVIRONMENT=production
+      - CORS_ORIGINS=http://localhost,http://localhost:80,http://localhost:3000,http://127.0.0.1
+      - DATABASE_PATH=/app/backend/data/bhashashield.db
+      - MODEL_PATH=/app/backend/data/muril_classifier.joblib
+      - USE_ML_MODEL=true
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+    ports:
+      - "8000:8000"
+    volumes:
+      # Persistent volume for SQLite database and logs
+      - bhashashield_data:/app/backend/data
+    networks:
+      - bhashashield-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:8000/v1/health"]
+      interval: 20s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    container_name: bhashashield-frontend
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - bhashashield-net
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:80/"]
+      interval: 20s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+
+volumes:
+  bhashashield_data:
+    name: bhashashield_sqlite_data
+
+networks:
+  bhashashield-net:
+    name: bhashashield_network
+    driver: bridge
