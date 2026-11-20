@@ -1,10 +1,10 @@
 # BhashaShield (భాషాషీల్డ్ / भाषाशील्ड)
 ### Production-Grade Multilingual AI Security & Prompt Injection Defense Platform
 
-[![Backend Tests](https://img.shields.io/badge/pytest-24%20passed%20(100%25)-brightgreen.svg)]()
+[![Backend Tests](https://img.shields.io/badge/pytest-31%20passed%20(100%25)-brightgreen.svg)]()
 [![Frontend Build](https://img.shields.io/badge/vite%20build-passing-brightgreen.svg)]()
-[![Model Status](https://img.shields.io/badge/model-BhashaShield--MuRIL--v1%20active-blue.svg)]()
-[![Latency](https://img.shields.io/badge/p95%20latency-12.4ms-blueviolet.svg)]()
+[![Model Status](https://img.shields.io/badge/model-BhashaShield--Classifier--v1-blue.svg)]()
+[![Latency](https://img.shields.io/badge/p50%20latency-18.06ms-blueviolet.svg)]()
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)]()
 
 > **"Threats speak every language. We understand them all."**
@@ -16,14 +16,14 @@ BhashaShield is an enterprise-grade AI security platform designed to detect and 
 ## Key Highlights
 
 - **Multi-Layer Hybrid Defense Pipeline**:
-  - **Layer 1: Input Normalization** — Unicode NFKC canonicalization, zero-width stripping (`\u200B-F`), Cyrillic/Greek homoglyph mapping, spacing collapse, and Base64 extraction.
+  - **Layer 1: Input Normalization** — Unicode NFKC canonicalization, grammatical Indic joiner preservation, zero-width stripping (`\u200B-F`), Cyrillic/Greek homoglyph mapping, spacing collapse, and Base64 extraction.
   - **Layer 2: Deterministic Rule Engine** — 18 threat families with target differentiation (AI Assistant vs Human End-User) and educational hard-negative inquiry filtering.
-  - **Layer 3: Multilingual N-Gram ML Engine** — Calibrated sub-word and morphological classifiers (`BhashaShield-MuRIL-v1`).
-  - **Layer 4: Guardrail Decision Policy Engine** — Versioned `/v1/decision` returning `ALLOW`, `REVIEW`, or `BLOCK` in sub-15ms.
+  - **Layer 3: Multilingual Statistical ML Engine** — Calibrated sub-word and morphological classifiers (`BhashaShield-Multilingual-Classifier-v1`).
+  - **Layer 4: Guardrail Decision Policy Engine** — Versioned `/v1/decision` returning `ALLOW`, `REVIEW`, or `BLOCK` in sub-20ms.
 - **Scientific Evaluation & Benchmarking**:
   - 18 adversarial attack families + 7 hard negative families.
   - Strict template family partitioning (zero data leakage between splits).
-  - 96.0% Precision, 100% Recall, 0.9796 F1 score on unseen held-out test data.
+  - 96.55% Precision, 90.32% Recall, 0.9333 F1 score on unseen held-out test data (840 samples).
   - Empirical Hardware Inference Latency Profiling with sub-50ms SLA.
 - **Cinematic Web Experience**:
   - Flagship Default Theme: **AI LAB — INDIGO ICE** (`#090D1C` / `#EAF4FF` / `#36E4FF`).

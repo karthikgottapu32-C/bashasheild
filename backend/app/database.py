@@ -10,7 +10,10 @@ from app.models import ScanRecord, DashboardStats, RiskLevel
 def get_connection():
     db_path = settings.DATABASE_PATH
     os.makedirs(os.path.dirname(db_path), exist_ok=True)
-    conn = sqlite3.connect(db_path)
+    conn = sqlite3.connect(db_path, timeout=10.0)
+    conn.execute("PRAGMA journal_mode=WAL;")
+    conn.execute("PRAGMA busy_timeout=5000;")
+    conn.execute("PRAGMA synchronous=NORMAL;")
     conn.row_factory = sqlite3.Row
     return conn
 
@@ -45,6 +48,10 @@ def init_db():
         is_synthetic INTEGER NOT NULL DEFAULT 1
     )
     """)
+
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_scans_timestamp ON scans(timestamp DESC);")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_scans_channel ON scans(channel);")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_scans_risk_level ON scans(risk_level);")
     conn.commit()
     conn.close()
 

@@ -1,8 +1,13 @@
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, Header, Depends, Request
 from fastapi.middleware.cors import CORSMiddleware
-from typing import List, Optional
+from fastapi.responses import JSONResponse
+from starlette.middleware.base import BaseHTTPMiddleware
+from typing import List, Optional, Dict
+from collections import defaultdict
 import os
 import json
+import time
+import logging
 
 from app.config import settings
 from app.models import (
@@ -10,7 +15,11 @@ from app.models import (
     AnalyzeResponse,
     DashboardStats,
     ScanRecord,
-    EvaluationMetrics
+    EvaluationMetrics,
+    InputChannel,
+    GuardDecisionRequest,
+    GuardDecisionResponse,
+    PolicyDecision
 )
 from app.core.detector import analyze_text
 from app.core.model_service import model_service
@@ -26,6 +35,63 @@ from app.ml.evaluate import run_evaluation
 
 from contextlib import asynccontextmanager
 
+logger = logging.getLogger("bhashashield.api")
+
+# Rate limiting sliding-window record: ip -> list of timestamps
+_rate_limit_records: Dict[str, List[float]] = defaultdict(list)
+
+def verify_admin_key(x_admin_key: Optional[str] = Header(None, alias="X-Admin-Key")):
+    """
+    Validates administrative authorization header.
+    When ADMIN_API_KEY is configured in settings/environment, requests without
+    a matching X-Admin-Key header are rejected with HTTP 401.
+    """
+    if settings.ADMIN_API_KEY:
+        if not x_admin_key or x_admin_key != settings.ADMIN_API_KEY:
+            raise HTTPException(
+                status_code=401,
+                detail="Unauthorized: Valid X-Admin-Key header required for administrative operations."
+            )
+    return True
+
+class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        # Max request body limit check (1MB)
+        content_length = request.headers.get("content-length")
+        if content_length and int(content_length) > 1_048_576:
+            return JSONResponse(
+                status_code=413,
+                content={"detail": "Payload too large. Maximum request size is 1MB."}
+            )
+        response = await call_next(request)
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["X-XSS-Protection"] = "1; mode=block"
+        response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        response.headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=()"
+        return response
+
+class RateLimitMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        if request.url.path in ("/analyze", "/v1/analyze", "/v1/decision"):
+            client_ip = request.client.host if request.client else "unknown"
+            now = time.time()
+            window_start = now - 60.0
+            timestamps = [t for t in _rate_limit_records[client_ip] if t > window_start]
+            if len(timestamps) >= settings.RATE_LIMIT_PER_MINUTE:
+                return JSONResponse(
+                    status_code=429,
+                    content={
+                        "detail": f"Rate limit exceeded. Maximum {settings.RATE_LIMIT_PER_MINUTE} requests per minute.",
+                        "error_code": "RATE_LIMIT_EXCEEDED"
+                    },
+                    headers={"Retry-After": "60"}
+                )
+            timestamps.append(now)
+            _rate_limit_records[client_ip] = timestamps
+        return await call_next(request)
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db()
@@ -34,7 +100,7 @@ async def lifespan(app: FastAPI):
         if stats.total_scans == 0:
             seed_demo_scans()
     except Exception as e:
-        print(f"[!] Warning during DB startup: {e}")
+        logger.warning(f"DB startup warning: {e}")
     yield
 
 app = FastAPI(
@@ -44,14 +110,26 @@ app = FastAPI(
     lifespan=lifespan
 )
 
+# Attach security & rate limiting middlewares
+app.add_middleware(SecurityHeadersMiddleware)
+app.add_middleware(RateLimitMiddleware)
+
 # CORS configuration
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=settings.cors_origin_list,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+@app.exception_handler(Exception)
+async def generic_exception_handler(request: Request, exc: Exception):
+    logger.error(f"Unhandled exception on {request.method} {request.url.path}: {exc}", exc_info=True)
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "An internal server error occurred.", "error_code": "INTERNAL_SERVER_ERROR"}
+    )
 
 @app.get("/")
 def root_endpoint():
@@ -221,9 +299,13 @@ def get_scans_endpoint(limit: int = Query(50, ge=1, le=200), offset: int = Query
     return get_scans(limit=limit, offset=offset)
 
 @app.delete("/scans")
-def clear_scans_endpoint():
+def clear_scans_endpoint(_: bool = Depends(verify_admin_key)):
     count = clear_scans()
     return {"status": "success", "cleared_records": count, "message": "Scan history cleared."}
+
+@app.delete("/v1/scans")
+def v1_clear_scans_endpoint(_: bool = Depends(verify_admin_key)):
+    return clear_scans_endpoint(_)
 
 @app.get("/evaluation/report")
 def evaluation_report_endpoint():
@@ -243,7 +325,7 @@ def evaluation_report_endpoint():
     return report
 
 @app.post("/evaluation/run")
-def trigger_evaluation_endpoint():
+def trigger_evaluation_endpoint(_: bool = Depends(verify_admin_key)):
     report = run_evaluation()
     return {
         "status": "completed",
@@ -253,9 +335,6 @@ def trigger_evaluation_endpoint():
 # ==============================================================================
 # VERSIONED V1 API ENDPOINTS & ENTERPRISE GUARD DECISION POLICY ENGINE
 # ==============================================================================
-
-from app.models import GuardDecisionRequest, GuardDecisionResponse, PolicyDecision
-import time
 
 @app.get("/v1/health")
 def v1_health_endpoint():

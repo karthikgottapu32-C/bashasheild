@@ -27,7 +27,7 @@ def train_model(data_dir: str = "backend/data", model_out_path: str = None) -> D
     train_labels = [str(d["threat_category"]) if d["is_malicious"] else "BENIGN" for d in train_data]
 
     print(f"[*] Training Multilingual Security Classifier on {len(train_texts)} samples across template families...")
-    model = MultilingualSecurityClassifier(name="BhashaShield-MuRIL-v1")
+    model = MultilingualSecurityClassifier(name="BhashaShield-Multilingual-Classifier-v1")
     model.fit(train_texts, train_labels)
 
     # 2. Evaluate on validation set

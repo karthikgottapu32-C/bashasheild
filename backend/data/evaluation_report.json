@@ -1,92 +1,62 @@
 {
-  "precision": 0.96,
-  "recall": 1.0,
-  "f1_score": 0.9796,
-  "false_positive_rate": 0.2,
-  "prompt_injection_precision": 0.68,
-  "prompt_injection_recall": 1.0,
-  "prompt_injection_f1": 0.8095,
-  "total_samples": 580,
+  "precision": 0.9655,
+  "recall": 0.9032,
+  "f1_score": 0.9333,
+  "false_positive_rate": 0.0909,
+  "prompt_injection_precision": 0.6071,
+  "prompt_injection_recall": 0.8947,
+  "prompt_injection_f1": 0.7234,
+  "total_samples": 840,
   "confusion_matrix": {
-    "true_positives": 480,
+    "true_positives": 560,
     "false_positives": 20,
-    "false_negatives": 0,
-    "true_negatives": 80
+    "false_negatives": 60,
+    "true_negatives": 200
   },
   "latency_profile": {
-    "mean_ms": 4.97,
-    "median_p50_ms": 2.5,
-    "p95_ms": 12.19,
-    "p99_ms": 22.68,
-    "max_ms": 55.72
+    "mean_ms": 21.77,
+    "median_p50_ms": 18.06,
+    "p95_ms": 42.86,
+    "p99_ms": 90.4,
+    "max_ms": 133.04
   },
   "per_language": {
+    "hi-Latn": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1_score": 1.0,
+      "false_positive_rate": 0.0,
+      "samples": 140
+    },
     "en": {
       "precision": 1.0,
-      "recall": 1.0,
-      "f1_score": 1.0,
+      "recall": 0.875,
+      "f1_score": 0.9333,
       "false_positive_rate": 0.0,
-      "samples": 120
-    },
-    "hi-Latn": {
-      "precision": 0.8,
-      "recall": 1.0,
-      "f1_score": 0.8889,
-      "false_positive_rate": 1.0,
-      "samples": 100
-    },
-    "te-Latn": {
-      "precision": 1.0,
-      "recall": 1.0,
-      "f1_score": 1.0,
-      "false_positive_rate": 0.0,
-      "samples": 100
+      "samples": 220
     },
     "hi": {
-      "precision": 1.0,
+      "precision": 0.8571,
       "recall": 1.0,
-      "f1_score": 1.0,
-      "false_positive_rate": 0.0,
-      "samples": 100
-    },
-    "mixed": {
-      "precision": 1.0,
-      "recall": 1.0,
-      "f1_score": 1.0,
-      "false_positive_rate": 0.0,
-      "samples": 60
+      "f1_score": 0.9231,
+      "false_positive_rate": 0.5,
+      "samples": 160
     },
     "te": {
       "precision": 1.0,
-      "recall": 1.0,
-      "f1_score": 1.0,
+      "recall": 0.8333,
+      "f1_score": 0.9091,
       "false_positive_rate": 0.0,
-      "samples": 100
-    }
-  },
-  "per_script": {
-    "Latin": {
-      "precision": 0.9375,
-      "recall": 1.0,
-      "f1_score": 0.9677,
-      "false_positive_rate": 0.3333,
-      "samples": 360
+      "samples": 160
     },
-    "Devanagari": {
+    "te-Latn": {
       "precision": 1.0,
-      "recall": 1.0,
-      "f1_score": 1.0,
+      "recall": 0.8,
+      "f1_score": 0.8889,
       "false_positive_rate": 0.0,
-      "samples": 100
+      "samples": 140
     },
-    "Telugu": {
-      "precision": 1.0,
-      "recall": 1.0,
-      "f1_score": 1.0,
-      "false_positive_rate": 0.0,
-      "samples": 100
-    },
-    "Telugu + Latin": {
+    "mixed": {
       "precision": 1.0,
       "recall": 1.0,
       "f1_score": 1.0,
@@ -94,91 +64,156 @@
       "samples": 20
     }
   },
+  "per_script": {
+    "Latin": {
+      "precision": 1.0,
+      "recall": 0.8947,
+      "f1_score": 0.9444,
+      "false_positive_rate": 0.0,
+      "samples": 520
+    },
+    "Devanagari": {
+      "precision": 0.8571,
+      "recall": 1.0,
+      "f1_score": 0.9231,
+      "false_positive_rate": 0.5,
+      "samples": 160
+    },
+    "Telugu": {
+      "precision": 1.0,
+      "recall": 0.8333,
+      "f1_score": 0.9091,
+      "false_positive_rate": 0.0,
+      "samples": 160
+    }
+  },
   "per_category": {
+    "PROMPT_INJECTION": {
+      "precision": 1.0,
+      "recall": 0.8947,
+      "f1_score": 0.9444,
+      "false_positive_rate": 0.0,
+      "samples": 380
+    },
+    "BENIGN": {
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1_score": 0.0,
+      "false_positive_rate": 0.0909,
+      "samples": 220
+    },
+    "JAILBREAK": {
+      "precision": 1.0,
+      "recall": 0.8,
+      "f1_score": 0.8889,
+      "false_positive_rate": 0.0,
+      "samples": 100
+    },
     "DATA_EXFILTRATION": {
       "precision": 1.0,
       "recall": 1.0,
       "f1_score": 1.0,
       "false_positive_rate": 0.0,
       "samples": 140
-    },
-    "BENIGN": {
-      "precision": 0.0,
-      "recall": 0.0,
-      "f1_score": 0.0,
-      "false_positive_rate": 0.2,
-      "samples": 100
-    },
-    "PROMPT_INJECTION": {
-      "precision": 1.0,
-      "recall": 1.0,
-      "f1_score": 1.0,
-      "false_positive_rate": 0.0,
-      "samples": 340
     }
   },
   "per_channel": {
     "General Text": {
-      "precision": 0.9646,
-      "recall": 1.0,
-      "f1_score": 0.982,
-      "false_positive_rate": 0.25,
-      "samples": 125
-    },
-    "UPI Remark": {
-      "precision": 0.963,
-      "recall": 1.0,
-      "f1_score": 0.9811,
-      "false_positive_rate": 0.1905,
-      "samples": 125
-    },
-    "Email": {
-      "precision": 0.9593,
-      "recall": 1.0,
-      "f1_score": 0.9793,
-      "false_positive_rate": 0.2174,
-      "samples": 141
+      "precision": 0.9658,
+      "recall": 0.8692,
+      "f1_score": 0.915,
+      "false_positive_rate": 0.093,
+      "samples": 173
     },
     "WhatsApp": {
-      "precision": 0.9685,
-      "recall": 1.0,
-      "f1_score": 0.984,
-      "false_positive_rate": 0.2,
-      "samples": 143
+      "precision": 0.9752,
+      "recall": 0.9147,
+      "f1_score": 0.944,
+      "false_positive_rate": 0.0732,
+      "samples": 170
     },
     "SMS": {
-      "precision": 0.8966,
-      "recall": 1.0,
-      "f1_score": 0.9455,
-      "false_positive_rate": 0.15,
-      "samples": 46
+      "precision": 0.9341,
+      "recall": 0.8947,
+      "f1_score": 0.914,
+      "false_positive_rate": 0.1364,
+      "samples": 139
+    },
+    "Email": {
+      "precision": 0.9752,
+      "recall": 0.944,
+      "f1_score": 0.9593,
+      "false_positive_rate": 0.0698,
+      "samples": 168
+    },
+    "UPI Remark": {
+      "precision": 0.9692,
+      "recall": 0.8936,
+      "f1_score": 0.9299,
+      "false_positive_rate": 0.0816,
+      "samples": 190
     }
   },
   "per_attack_family": {
-    "FAM_MAL_EXFIL_SECRETS": {
+    "FAM_11_TRANSLATION_FRAMING": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1_score": 1.0,
+      "false_positive_rate": 0.0,
+      "samples": 100
+    },
+    "FAM_BEN_07_CUSTOMER_DISPUTE": {
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1_score": 0.0,
+      "false_positive_rate": 0.0,
+      "samples": 100
+    },
+    "FAM_06_FEW_SHOT": {
+      "precision": 1.0,
+      "recall": 0.8,
+      "f1_score": 0.8889,
+      "false_positive_rate": 0.0,
+      "samples": 100
+    },
+    "FAM_14_MULTI_TURN_DRIFT": {
+      "precision": 1.0,
+      "recall": 0.8,
+      "f1_score": 0.8889,
+      "false_positive_rate": 0.0,
+      "samples": 100
+    },
+    "FAM_12_INDIRECT_RAG": {
+      "precision": 1.0,
+      "recall": 0.75,
+      "f1_score": 0.8571,
+      "false_positive_rate": 0.0,
+      "samples": 80
+    },
+    "FAM_02_SYS_EXFIL": {
       "precision": 1.0,
       "recall": 1.0,
       "f1_score": 1.0,
       "false_positive_rate": 0.0,
       "samples": 140
     },
-    "FAM_BEN_CUSTOMER_SUPPORT": {
+    "FAM_BEN_02_CS_STUDENT": {
       "precision": 0.0,
       "recall": 0.0,
       "f1_score": 0.0,
-      "false_positive_rate": 0.2,
-      "samples": 100
+      "false_positive_rate": 0.1667,
+      "samples": 120
     },
-    "FAM_MAL_OVERRIDE_DIRECT": {
+    "FAM_18_PIGGYBACKING": {
       "precision": 1.0,
       "recall": 1.0,
       "f1_score": 1.0,
       "false_positive_rate": 0.0,
-      "samples": 340
+      "samples": 100
     }
   },
-  "evaluated_at": "2026-11-20T11:01:47.063232Z",
-  "model_evaluated": "BhashaShield Hybrid Engine (ACTIVE: BhashaShield-MuRIL-v1 (scikit-learn))",
+  "evaluated_at": "2026-11-20T15:42:38.557819Z",
+  "model_evaluated": "BhashaShield Hybrid Engine (ACTIVE: BhashaShield-Multilingual-Classifier-v1 (scikit-learn))",
   "is_synthetic": true,
   "disclaimer": "Results are measured on an unseen synthetic evaluation test set (zero template leakage) and do not establish real-world detection performance."
 }

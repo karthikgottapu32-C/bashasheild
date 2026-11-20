@@ -78,6 +78,22 @@ class NormalizedInput:
 
         return raw_start, raw_end, self.raw_text[raw_start:raw_end]
 
+def is_indic_codepoint(char: str) -> bool:
+    """Checks if character belongs to South Asian / Indic Unicode blocks (0x0900 - 0x0D7F)."""
+    return 0x0900 <= ord(char) <= 0x0D7F
+
+def is_legitimate_indic_joiner(raw_text: str, idx: int) -> bool:
+    """
+    Checks if ZWNJ (\u200c) or ZWJ (\u200d) is legitimate Indic orthography (used for virama/half-forms)
+    as defined by the Unicode Standard, rather than an evasion obfuscation.
+    """
+    char = raw_text[idx]
+    if char not in ('\u200c', '\u200d'):
+        return False
+    prev_is_indic = (idx > 0 and is_indic_codepoint(raw_text[idx - 1]))
+    next_is_indic = (idx < len(raw_text) - 1 and is_indic_codepoint(raw_text[idx + 1]))
+    return prev_is_indic or next_is_indic
+
 def normalize_input(raw_text: str) -> NormalizedInput:
     """
     Layer 1 Input Normalization:
@@ -90,11 +106,14 @@ def normalize_input(raw_text: str) -> NormalizedInput:
     anomalies: List[str] = []
     obfuscation_score = 0.0
 
-    # Step 1: Detect zero-width characters
-    zw_count = sum(1 for c in raw_text if c in ZERO_WIDTH_CHARS)
-    if zw_count > 0:
-        anomalies.append(f"ZERO_WIDTH_CHARACTERS ({zw_count} characters detected)")
-        obfuscation_score += min(35.0, zw_count * 10.0)
+    # Step 1: Detect suspicious zero-width characters (excluding legitimate Indic grammatical ZWNJ/ZWJ)
+    suspicious_zw_count = sum(
+        1 for i, c in enumerate(raw_text)
+        if c in ZERO_WIDTH_CHARS and not is_legitimate_indic_joiner(raw_text, i)
+    )
+    if suspicious_zw_count > 0:
+        anomalies.append(f"ZERO_WIDTH_CHARACTERS ({suspicious_zw_count} characters detected)")
+        obfuscation_score += min(35.0, suspicious_zw_count * 10.0)
 
     # Step 2: Unicode NFKC normalization character by character with offset mapping
     norm_chars = []

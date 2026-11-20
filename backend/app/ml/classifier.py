@@ -10,7 +10,7 @@ class MultilingualSecurityClassifier:
     Multilingual sub-word & n-gram classifier optimized for Indian scripts and romanized text.
     Handles Telugu, Hindi, Romanized Telugu, Romanized Hindi, and English.
     """
-    def __init__(self, name: str = "BhashaShield-MuRIL-v1"):
+    def __init__(self, name: str = "BhashaShield-Multilingual-Classifier-v1"):
         self.name = name
         # Sub-word char ngrams (3-5) capture morphological roots in Telugu/Hindi script and romanized transliterations
         char_vectorizer = TfidfVectorizer(

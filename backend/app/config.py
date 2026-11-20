@@ -15,6 +15,8 @@ class Settings(BaseSettings):
     MODEL_PATH: str = str(BASE_DIR / "data" / "muril_classifier.joblib")
     USE_ML_MODEL: bool = True
     MAX_INPUT_LENGTH: int = 10000
+    ADMIN_API_KEY: str = ""
+    RATE_LIMIT_PER_MINUTE: int = 120
 
     @property
     def cors_origin_list(self) -> List[str]:

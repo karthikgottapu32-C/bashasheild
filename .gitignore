@@ -39,6 +39,7 @@ frontend/.wireit/
 *.sqlite-wal
 *.sqlite-shm
 backend/data/*.db
+backend/data/backups/
 
 # IDE and Editor Cache
 .idea/
