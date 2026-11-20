@@ -10,6 +10,7 @@ import {
   RefreshCw,
   TrendingUp,
   AlertOctagon,
+  AlertTriangle,
   Cpu,
   UserX,
   Trash2,
@@ -182,6 +183,24 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </button>
         </div>
       </div>
+
+      {/* Error Alert Banner */}
+      {error && (
+        <div className="mb-6 p-4 rounded-xl bg-status-coral/10 border border-status-coral/30 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <AlertTriangle className="w-5 h-5 text-status-coral shrink-0" />
+            <p className="text-sm text-status-coral font-medium">{error}</p>
+          </div>
+          <button
+            onClick={loadData}
+            disabled={loading}
+            className="px-3 py-1.5 rounded-lg border border-status-coral/40 text-xs font-bold text-white hover:bg-status-coral/20 transition-all flex items-center gap-1.5 shrink-0"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+            Retry Connection
+          </button>
+        </div>
+      )}
 
       {/* KPI Cards Row */}
       {stats && (

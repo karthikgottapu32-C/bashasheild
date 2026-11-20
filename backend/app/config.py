@@ -9,7 +9,7 @@ class Settings(BaseSettings):
     HOST: str = "0.0.0.0"
     PORT: int = 8000
     ENVIRONMENT: str = "development"
-    CORS_ORIGINS: str = "http://localhost:5173,http://localhost:3000,http://127.0.0.1:5173,*"
+    CORS_ORIGINS: str = "http://localhost:5173,http://127.0.0.1:5173,http://localhost:4173,http://127.0.0.1:4173,http://localhost:3000,http://127.0.0.1:3000,http://localhost:80,http://127.0.0.1:80,http://localhost,*"
     DATABASE_PATH: str = str(BASE_DIR / "data" / "bhashashield.db")
     GEMINI_API_KEY: str = ""
     MODEL_PATH: str = str(BASE_DIR / "data" / "muril_classifier.joblib")

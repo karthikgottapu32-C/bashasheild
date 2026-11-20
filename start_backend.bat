@@ -64,13 +64,12 @@ echo.
 echo =====================================================================
 echo [+] Launching FastAPI server on http://127.0.0.1:8000
 echo [+] Swagger Documentation: http://127.0.0.1:8000/docs
-echo [+] OpenAPI Schema: http://127.0.0.1:8000/openapi.json
-echo [+] Active Mode: Multilingual Rule Engine (Rules-Only Mode)
+echo [+] Active Mode: Hybrid Engine (Rules + BhashaShield-Multilingual-Classifier-v1)
 echo [+] Press Ctrl+C in this terminal to shut down gracefully.
 echo =====================================================================
 echo.
 
-python -m uvicorn app.main:app --app-dir backend --host 127.0.0.1 --port 8000 --reload --reload-dir backend\app
+python -m uvicorn app.main:app --app-dir backend --host 0.0.0.0 --port 8000 --reload --reload-dir backend\app
 
 if %ERRORLEVEL% NEQ 0 (
     echo.

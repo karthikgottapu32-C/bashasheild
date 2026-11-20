@@ -14,11 +14,11 @@
     "true_negatives": 200
   },
   "latency_profile": {
-    "mean_ms": 21.77,
-    "median_p50_ms": 18.06,
-    "p95_ms": 42.86,
-    "p99_ms": 90.4,
-    "max_ms": 133.04
+    "mean_ms": 8.9,
+    "median_p50_ms": 8.15,
+    "p95_ms": 14.18,
+    "p99_ms": 20.78,
+    "max_ms": 92.96
   },
   "per_language": {
     "hi-Latn": {
@@ -212,7 +212,7 @@
       "samples": 100
     }
   },
-  "evaluated_at": "2026-11-20T15:42:38.557819Z",
+  "evaluated_at": "2026-11-20T16:31:51.892639Z",
   "model_evaluated": "BhashaShield Hybrid Engine (ACTIVE: BhashaShield-Multilingual-Classifier-v1 (scikit-learn))",
   "is_synthetic": true,
   "disclaimer": "Results are measured on an unseen synthetic evaluation test set (zero template leakage) and do not establish real-world detection performance."

@@ -7,6 +7,44 @@ export default defineConfig({
   server: {
     port: 5173,
     proxy: {
+      '/v1': {
+        target: 'http://127.0.0.1:8000',
+        changeOrigin: true
+      },
+      '/api': {
+        target: 'http://127.0.0.1:8000',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api/, '')
+      },
+      '/analyze': {
+        target: 'http://127.0.0.1:8000',
+        changeOrigin: true
+      },
+      '/stats': {
+        target: 'http://127.0.0.1:8000',
+        changeOrigin: true
+      },
+      '/scans': {
+        target: 'http://127.0.0.1:8000',
+        changeOrigin: true
+      },
+      '/evaluation': {
+        target: 'http://127.0.0.1:8000',
+        changeOrigin: true
+      },
+      '/health': {
+        target: 'http://127.0.0.1:8000',
+        changeOrigin: true
+      }
+    }
+  },
+  preview: {
+    port: 4173,
+    proxy: {
+      '/v1': {
+        target: 'http://127.0.0.1:8000',
+        changeOrigin: true
+      },
       '/api': {
         target: 'http://127.0.0.1:8000',
         changeOrigin: true,
