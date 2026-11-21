@@ -16,7 +16,9 @@ import {
   Trash2,
   Filter,
   CheckCircle2,
-  Clock
+  Clock,
+  Download,
+  Search
 } from 'lucide-react';
 import {
   BarChart,
@@ -29,7 +31,7 @@ import {
   Pie,
   Cell
 } from 'recharts';
-import { getStats, getScans, clearScans } from '../services/api';
+import { getStats, getScans, clearScans, deleteScan } from '../services/api';
 import { DashboardStats, ScanRecord } from '../types';
 import { useTheme } from '../theme/useTheme';
 
@@ -50,6 +52,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [clearing, setClearing] = useState(false);
   const [filterRisk, setFilterRisk] = useState<string>("ALL");
+  const [searchQuery, setSearchQuery] = useState<string>("");
 
   const loadData = async () => {
     try {
@@ -83,6 +86,43 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     } finally {
       setClearing(false);
     }
+  };
+
+  const handleDeleteRow = async (scanId: string) => {
+    if (!window.confirm(`Delete scan ${scanId}?`)) return;
+    try {
+      await deleteScan(scanId);
+      setScans(prev => prev.filter(s => s.id !== scanId));
+    } catch (err: any) {
+      alert("Failed to delete scan: " + err.message);
+    }
+  };
+
+  const handleExportCsv = () => {
+    if (filteredScans.length === 0) {
+      alert("No scans available to export.");
+      return;
+    }
+    const headers = ["Scan ID", "Timestamp", "Channel", "Language", "Script", "Risk Level", "Risk Score", "Primary Threat", "Text Preview"];
+    const rows = filteredScans.map(s => [
+      `"${s.id}"`,
+      `"${s.timestamp}"`,
+      `"${s.channel}"`,
+      `"${s.language}"`,
+      `"${s.script}"`,
+      `"${s.risk_level}"`,
+      s.risk_score,
+      `"${s.primary_threat || 'BENIGN'}"`,
+      `"${s.text_preview.replace(/"/g, '""')}"`
+    ]);
+    const csvContent = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows.map(e => e.join(","))].join("\n");
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `bhashashield_scans_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   if (loading) {
@@ -119,9 +159,16 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     CRITICAL: '#FF4566'
   };
 
-  const filteredScans = filterRisk === "ALL"
-    ? scans
-    : scans.filter(s => s.risk_level === filterRisk);
+  const filteredScans = scans.filter(s => {
+    const matchesRisk = filterRisk === "ALL" || s.risk_level === filterRisk;
+    const q = searchQuery.trim().toLowerCase();
+    const matchesQuery = !q ||
+      s.id.toLowerCase().includes(q) ||
+      s.text_preview.toLowerCase().includes(q) ||
+      s.channel.toLowerCase().includes(q) ||
+      s.language.toLowerCase().includes(q);
+    return matchesRisk && matchesQuery;
+  });
 
   return (
     <div className="min-h-screen pt-20 pb-16 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
@@ -537,7 +584,18 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               </p>
             </div>
 
-            <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="relative">
+                <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-txt-muted" />
+                <input
+                  type="text"
+                  placeholder="Search scans..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="bg-bg-dark border border-white/15 rounded-lg pl-8 pr-3 py-1.5 text-xs text-txt-primary focus:outline-none focus:border-cyan w-36 sm:w-48 placeholder:text-txt-muted"
+                />
+              </div>
+
               <select
                 value={filterRisk}
                 onChange={(e) => setFilterRisk(e.target.value)}
@@ -549,6 +607,16 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 <option value="MEDIUM">Medium</option>
                 <option value="LOW">Low</option>
               </select>
+
+              <button
+                onClick={handleExportCsv}
+                disabled={filteredScans.length === 0}
+                className="px-3 py-1.5 rounded-lg bg-cyan/15 hover:bg-cyan/25 text-cyan border border-cyan/30 text-xs font-semibold flex items-center gap-1.5 transition-all disabled:opacity-40"
+                title="Export current filtered history as CSV"
+              >
+                <Download className="w-3.5 h-3.5" />
+                Export CSV
+              </button>
 
               <button
                 onClick={handleClearHistory}
@@ -571,32 +639,50 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                   <th className="py-2.5 px-3">Channel</th>
                   <th className="py-2.5 px-3">Risk Level</th>
                   <th className="py-2.5 px-3">Score</th>
+                  <th className="py-2.5 px-3 text-right">Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/5 font-mono">
-                {filteredScans.map((s) => (
-                  <tr key={s.id} className="hover:bg-white/[0.02]">
-                    <td className="py-3 px-3 text-cyan">{s.id}</td>
-                    <td className="py-3 px-3 text-txt-muted">{s.timestamp.split('T')[0]}</td>
-                    <td className="py-3 px-3 font-sans max-w-sm truncate text-txt-primary">
-                      {s.text_preview}
+                {filteredScans.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="py-8 text-center text-txt-muted font-sans">
+                      No scan records matching your filter criteria.
                     </td>
-                    <td className="py-3 px-3 text-txt-secondary">{s.channel}</td>
-                    <td className="py-3 px-3">
-                      <span
-                        className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                          s.risk_level === 'CRITICAL' ? 'bg-status-coral/20 text-status-coral' :
-                          s.risk_level === 'HIGH' ? 'bg-status-amber/20 text-status-amber' :
-                          s.risk_level === 'MEDIUM' ? 'bg-neon-blue/20 text-neon-blue' :
-                          'bg-status-emerald/20 text-status-emerald'
-                        }`}
-                      >
-                        {s.risk_level}
-                      </span>
-                    </td>
-                    <td className="py-3 px-3 text-white font-bold">{Math.round(s.risk_score)}</td>
                   </tr>
-                ))}
+                ) : (
+                  filteredScans.map((s) => (
+                    <tr key={s.id} className="hover:bg-white/[0.02]">
+                      <td className="py-3 px-3 text-cyan">{s.id}</td>
+                      <td className="py-3 px-3 text-txt-muted">{s.timestamp.split('T')[0]}</td>
+                      <td className="py-3 px-3 font-sans max-w-sm truncate text-txt-primary">
+                        {s.text_preview}
+                      </td>
+                      <td className="py-3 px-3 text-txt-secondary">{s.channel}</td>
+                      <td className="py-3 px-3">
+                        <span
+                          className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                            s.risk_level === 'CRITICAL' ? 'bg-status-coral/20 text-status-coral' :
+                            s.risk_level === 'HIGH' ? 'bg-status-amber/20 text-status-amber' :
+                            s.risk_level === 'MEDIUM' ? 'bg-neon-blue/20 text-neon-blue' :
+                            'bg-status-emerald/20 text-status-emerald'
+                          }`}
+                        >
+                          {s.risk_level}
+                        </span>
+                      </td>
+                      <td className="py-3 px-3 text-white font-bold">{Math.round(s.risk_score)}</td>
+                      <td className="py-3 px-3 text-right">
+                        <button
+                          onClick={() => handleDeleteRow(s.id)}
+                          className="p-1 rounded hover:bg-status-coral/20 text-txt-muted hover:text-status-coral transition-colors"
+                          title={`Delete scan ${s.id}`}
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>

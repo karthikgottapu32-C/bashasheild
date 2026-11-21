@@ -6,18 +6,27 @@ export function getApiBaseUrl(): string {
   }
 
   if (typeof window !== 'undefined') {
+    const hostname = window.location.hostname;
     const port = window.location.port;
-    // Standard reverse proxy ports (80, 443, empty) or Vite dev/preview (5173, 4173) proxy to backend
-    if (port === '5173' || port === '4173' || port === '80' || port === '443' || port === '') {
-      return '';
-    }
-    // If running on other localhost ports (e.g. 3000, 5000, 5500) without a reverse proxy
-    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+
+    // Local development: use Vite proxy on 5173/4173, or direct backend on 8000
+    if (hostname === 'localhost' || hostname === '127.0.0.1') {
+      if (port === '5173' || port === '4173') {
+        return '';
+      }
       return 'http://127.0.0.1:8000';
     }
+
+    // If served directly from the Render backend origin
+    if (hostname === 'bhashashield-api.onrender.com') {
+      return '';
+    }
+
+    // Independent frontend host (Vercel, Netlify, Render Static, etc.): target production backend
+    return 'https://bhashashield-api.onrender.com';
   }
 
-  return '';
+  return 'https://bhashashield-api.onrender.com';
 }
 
 function getAdminHeaders(): Record<string, string> {
@@ -40,7 +49,7 @@ async function requestJson<T>(path: string, options?: RequestInit): Promise<T> {
     response = await fetch(url, options);
   } catch (err: any) {
     throw new Error(
-      `Failed to connect to BhashaShield API at ${url}. Please ensure the backend server is running on http://127.0.0.1:8000.`
+      `Failed to connect to BhashaShield API at ${url}. Please verify network connectivity and backend service status.`
     );
   }
 
@@ -67,8 +76,26 @@ export async function getStats(): Promise<DashboardStats> {
   return requestJson<DashboardStats>('/stats');
 }
 
-export async function getScans(limit = 50, offset = 0): Promise<ScanRecord[]> {
-  return requestJson<ScanRecord[]>(`/scans?limit=${limit}&offset=${offset}`);
+export async function getScans(
+  limit = 50,
+  offset = 0,
+  query?: string,
+  riskLevel?: string
+): Promise<ScanRecord[]> {
+  const params = new URLSearchParams({
+    limit: String(limit),
+    offset: String(offset),
+  });
+  if (query) params.set('query', query);
+  if (riskLevel && riskLevel !== 'ALL') params.set('risk_level', riskLevel);
+  return requestJson<ScanRecord[]>(`/scans?${params.toString()}`);
+}
+
+export async function deleteScan(scanId: string): Promise<{ status: string; message: string }> {
+  return requestJson<{ status: string; message: string }>(`/scans/${scanId}`, {
+    method: 'DELETE',
+    headers: getAdminHeaders(),
+  });
 }
 
 export async function clearScans(): Promise<{ status: string; cleared_records: number }> {

@@ -2,13 +2,13 @@
   "evaluation_metadata": {
     "benchmark_version": "v3.0.0",
     "evaluated_samples": 1200,
-    "timestamp": "2026-11-21T12:46:34.465692Z"
+    "timestamp": "2026-11-21T16:55:58.150224Z"
   },
   "confusion_matrix": {
     "MALICIOUS": {
-      "MALICIOUS": 401,
-      "BENIGN": 2,
-      "UNCERTAIN": 69
+      "MALICIOUS": 404,
+      "BENIGN": 0,
+      "UNCERTAIN": 68
     },
     "BENIGN": {
       "MALICIOUS": 0,
@@ -22,27 +22,27 @@
     }
   },
   "metrics": {
-    "malicious_recall": 0.8496,
-    "malicious_recall_fraction": "401/472",
-    "malicious_escape_rate": 0.0042,
-    "malicious_escape_fraction": "2/472",
-    "malicious_abstention_rate": 0.1462,
-    "malicious_abstention_fraction": "69/472",
+    "malicious_recall": 0.8559,
+    "malicious_recall_fraction": "404/472",
+    "malicious_escape_rate": 0.0,
+    "malicious_escape_fraction": "0/472",
+    "malicious_abstention_rate": 0.1441,
+    "malicious_abstention_fraction": "68/472",
     "benign_clean_pass_rate": 0.9883,
     "benign_clean_pass_fraction": "509/515",
     "benign_false_positive_rate": 0.0,
     "benign_false_positive_fraction": "0/515",
     "benign_abstention_rate": 0.0117,
     "benign_abstention_fraction": "6/515",
-    "precision_malicious": 0.957,
-    "precision_malicious_fraction": "401/419",
-    "precision_benign": 0.825,
-    "precision_benign_fraction": "509/617",
-    "decision_coverage": 0.8633,
-    "decision_coverage_fraction": "1036/1200",
-    "selective_risk_on_covered": 0.1216,
-    "expected_calibration_error": 0.0827,
-    "brier_score": 0.0127
+    "precision_malicious": 0.9573,
+    "precision_malicious_fraction": "404/422",
+    "precision_benign": 0.8276,
+    "precision_benign_fraction": "509/615",
+    "decision_coverage": 0.8642,
+    "decision_coverage_fraction": "1037/1200",
+    "selective_risk_on_covered": 0.1196,
+    "expected_calibration_error": 0.0847,
+    "brier_score": 0.0111
   },
   "calibration_bins": [
     {
@@ -54,17 +54,17 @@
     },
     {
       "bin_range": "0.6-0.8",
-      "sample_count": 57,
-      "avg_confidence": 0.7411,
-      "accuracy": 0.9825,
-      "calibration_gap": 0.2414
+      "sample_count": 56,
+      "avg_confidence": 0.7416,
+      "accuracy": 1.0,
+      "calibration_gap": 0.2584
     },
     {
       "bin_range": "0.8-1.0",
-      "sample_count": 854,
-      "avg_confidence": 0.9272,
-      "accuracy": 0.9988,
-      "calibration_gap": 0.0716
+      "sample_count": 856,
+      "avg_confidence": 0.9271,
+      "accuracy": 1.0,
+      "calibration_gap": 0.0729
     }
   ],
   "per_language": {
@@ -73,14 +73,14 @@
       "actual_malicious": 221,
       "actual_benign": 151,
       "actual_uncertain": 118,
-      "predicted_malicious": 187,
-      "predicted_benign": 226,
-      "predicted_uncertain": 77,
+      "predicted_malicious": 190,
+      "predicted_benign": 224,
+      "predicted_uncertain": 76,
       "matrix": {
         "MALICIOUS": {
-          "MALICIOUS": 182,
-          "BENIGN": 2,
-          "UNCERTAIN": 37
+          "MALICIOUS": 185,
+          "BENIGN": 0,
+          "UNCERTAIN": 36
         },
         "BENIGN": {
           "MALICIOUS": 0,
@@ -310,9 +310,9 @@
     },
     "FINANCIAL_MANIPULATION": {
       "total": 147,
-      "predicted_malicious": 129,
-      "predicted_benign": 1,
-      "predicted_uncertain": 17
+      "predicted_malicious": 131,
+      "predicted_benign": 0,
+      "predicted_uncertain": 16
     },
     "UNKNOWN": {
       "total": 213,
@@ -322,8 +322,8 @@
     },
     "PHISHING": {
       "total": 25,
-      "predicted_malicious": 15,
-      "predicted_benign": 1,
+      "predicted_malicious": 16,
+      "predicted_benign": 0,
       "predicted_uncertain": 9
     }
   }

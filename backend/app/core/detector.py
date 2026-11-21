@@ -1,4 +1,5 @@
 import uuid
+import re
 from datetime import datetime
 from typing import List, Optional
 from app.models import (
@@ -14,6 +15,8 @@ from app.core.rule_engine import (
     evaluate_rules,
     QUOTED_DISCOURSE_PATTERN,
     SAFE_TRANSLATION_PATTERN,
+    SECURITY_ADVISORY_PATTERN,
+    EDUCATIONAL_INQUIRY_PATTERN,
     is_isolated_quote,
     is_truncated_or_low_context
 )
@@ -51,6 +54,9 @@ def analyze_text(request: AnalyzeRequest) -> AnalyzeResponse:
     is_isolated = is_isolated_quote(text)
     is_truncated = is_truncated_or_low_context(text)
     is_quoted_or_academic = bool(QUOTED_DISCOURSE_PATTERN.search(text))
+    is_defensive_advisory = bool(
+        re.match(r'^\s*(?:security|safety)\s+(?:tip|advisory|alert|rule|guideline)\b', text, re.I)
+    )
 
     if rule_findings:
         # Check if matched payload is strictly an isolated quote, truncated fragment, or inquiry question
@@ -101,7 +107,8 @@ def analyze_text(request: AnalyzeRequest) -> AnalyzeResponse:
                 not is_quoted_or_academic and
                 not is_isolated and
                 not is_truncated and
-                not is_safe_translation_without_secrets
+                not is_safe_translation_without_secrets and
+                not is_defensive_advisory
             )
             if is_decisive:
                 # Confirmed MALICIOUS

@@ -1,9 +1,11 @@
 from fastapi import FastAPI, HTTPException, Query, Header, Depends, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, FileResponse
+from fastapi.staticfiles import StaticFiles
 from starlette.middleware.base import BaseHTTPMiddleware
 from typing import List, Optional, Dict
 from collections import defaultdict
+from pathlib import Path
 import os
 import json
 import time
@@ -27,6 +29,8 @@ from app.core.model_service import model_service
 from app.database import (
     init_db,
     get_scans,
+    get_scan_by_id,
+    delete_scan,
     clear_scans,
     get_dashboard_stats,
     get_latest_evaluation,
@@ -132,8 +136,20 @@ async def generic_exception_handler(request: Request, exc: Exception):
         content={"detail": "An internal server error occurred.", "error_code": "INTERNAL_SERVER_ERROR"}
     )
 
+# Static frontend assets directory candidates
+_static_candidates = [
+    Path(__file__).resolve().parent.parent / "static",
+    Path(__file__).resolve().parent.parent.parent / "frontend" / "dist",
+    Path("/app/frontend/dist"),
+    Path("/app/backend/static")
+]
+STATIC_DIR = next((d for d in _static_candidates if d.exists() and (d / "index.html").exists()), None)
+
 @app.get("/")
-def root_endpoint():
+def root_endpoint(request: Request):
+    accept = request.headers.get("accept", "")
+    if STATIC_DIR and (STATIC_DIR / "index.html").exists() and ("text/html" in accept):
+        return FileResponse(STATIC_DIR / "index.html")
     return {
         "name": "BhashaShield API",
         "status": "running",
@@ -296,8 +312,27 @@ def stats_endpoint():
     return get_dashboard_stats()
 
 @app.get("/scans", response_model=List[ScanRecord])
-def get_scans_endpoint(limit: int = Query(50, ge=1, le=200), offset: int = Query(0, ge=0)):
-    return get_scans(limit=limit, offset=offset)
+def get_scans_endpoint(
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
+    query: Optional[str] = Query(None),
+    risk_level: Optional[str] = Query(None)
+):
+    return get_scans(limit=limit, offset=offset, query=query, risk_level=risk_level)
+
+@app.get("/scans/{scan_id}", response_model=ScanRecord)
+def get_scan_by_id_endpoint(scan_id: str):
+    scan = get_scan_by_id(scan_id)
+    if not scan:
+        raise HTTPException(status_code=404, detail="Scan record not found.")
+    return scan
+
+@app.delete("/scans/{scan_id}")
+def delete_scan_by_id_endpoint(scan_id: str, _: bool = Depends(verify_admin_key)):
+    deleted = delete_scan(scan_id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Scan record not found.")
+    return {"status": "success", "message": f"Scan {scan_id} deleted."}
 
 @app.delete("/scans")
 def clear_scans_endpoint(_: bool = Depends(verify_admin_key)):
@@ -413,4 +448,23 @@ def v1_guard_decision_endpoint(request: GuardDecisionRequest):
         scan_id=scan.scan_id,
         model_status=scan.model_status
     )
+
+# Static frontend assets mount and SPA client-side routing fallback
+if STATIC_DIR and (STATIC_DIR / "assets").exists():
+    app.mount("/assets", StaticFiles(directory=str(STATIC_DIR / "assets")), name="assets")
+
+@app.get("/{full_path:path}", include_in_schema=False)
+async def spa_fallback(full_path: str):
+    api_prefixes = ("v1/", "analyze", "stats", "scans", "health", "evaluation/", "docs", "openapi.json", "redoc")
+    if full_path.startswith(api_prefixes):
+        raise HTTPException(status_code=404, detail="Not Found")
+    if STATIC_DIR and STATIC_DIR.exists():
+        candidate = STATIC_DIR / full_path
+        if candidate.is_file():
+            return FileResponse(candidate)
+        index_file = STATIC_DIR / "index.html"
+        if index_file.exists():
+            return FileResponse(index_file)
+    raise HTTPException(status_code=404, detail="Not Found")
+
 

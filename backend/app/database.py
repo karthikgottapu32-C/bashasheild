@@ -112,15 +112,39 @@ def save_scan(
     conn.close()
     return record
 
-def get_scans(limit: int = 50, offset: int = 0) -> List[ScanRecord]:
+def get_scans(
+    limit: int = 50,
+    offset: int = 0,
+    query: Optional[str] = None,
+    risk_level: Optional[str] = None
+) -> List[ScanRecord]:
     conn = get_connection()
     cursor = conn.cursor()
-    cursor.execute("""
+
+    conditions = []
+    params: List[Any] = []
+
+    if query:
+        conditions.append("(text_preview LIKE ? OR id LIKE ? OR channel LIKE ?)")
+        search_pattern = f"%{query}%"
+        params.extend([search_pattern, search_pattern, search_pattern])
+
+    if risk_level and risk_level.upper() != "ALL":
+        conditions.append("risk_level = ?")
+        params.append(risk_level.upper())
+
+    where_clause = f"WHERE {' AND '.join(conditions)}" if conditions else ""
+
+    sql = f"""
     SELECT id, timestamp, channel, language, script, risk_score, risk_level, primary_threat, threat_categories, target_type, text_preview, is_saved
     FROM scans
+    {where_clause}
     ORDER BY timestamp DESC
     LIMIT ? OFFSET ?
-    """, (limit, offset))
+    """
+    params.extend([limit, offset])
+
+    cursor.execute(sql, tuple(params))
     rows = cursor.fetchall()
     conn.close()
 
@@ -141,6 +165,41 @@ def get_scans(limit: int = 50, offset: int = 0) -> List[ScanRecord]:
             is_saved=bool(r["is_saved"])
         ))
     return scans
+
+def get_scan_by_id(scan_id: str) -> Optional[ScanRecord]:
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+    SELECT id, timestamp, channel, language, script, risk_score, risk_level, primary_threat, threat_categories, target_type, text_preview, is_saved
+    FROM scans WHERE id = ?
+    """, (scan_id,))
+    r = cursor.fetchone()
+    conn.close()
+    if not r:
+        return None
+    return ScanRecord(
+        id=r["id"],
+        timestamp=r["timestamp"],
+        channel=r["channel"],
+        language=r["language"],
+        script=r["script"],
+        risk_score=r["risk_score"],
+        risk_level=r["risk_level"],
+        primary_threat=r["primary_threat"],
+        threat_categories=json.loads(r["threat_categories"]),
+        target_type=r["target_type"],
+        text_preview=r["text_preview"],
+        is_saved=bool(r["is_saved"])
+    )
+
+def delete_scan(scan_id: str) -> bool:
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM scans WHERE id = ?", (scan_id,))
+    deleted = cursor.rowcount > 0
+    conn.commit()
+    conn.close()
+    return deleted
 
 def clear_scans() -> int:
     conn = get_connection()

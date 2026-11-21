@@ -17,17 +17,29 @@ export const EvidenceHighlighter: React.FC<EvidenceHighlighterProps> = ({ text, 
     );
   }
 
-  // Sort spans by start offset
-  const sortedSpans = [...spans].sort((a, b) => a.start - b.start);
+  // Sort spans by start offset, and filter out any invalid ranges
+  const sortedSpans = [...spans]
+    .filter(s => s.start >= 0 && s.end > s.start && s.start < text.length)
+    .sort((a, b) => a.start - b.start || (b.end - b.start) - (a.end - a.start));
+
   const elements: React.ReactNode[] = [];
   let lastIndex = 0;
 
   sortedSpans.forEach((span, idx) => {
+    // Clamp start to at least lastIndex to prevent re-rendering overlapping text
+    const effectiveStart = Math.max(span.start, lastIndex);
+    const effectiveEnd = Math.min(span.end, text.length);
+
+    // If span is fully inside a previously rendered range, skip rendering text (avoid duplication)
+    if (effectiveStart >= effectiveEnd) {
+      return;
+    }
+
     // Non-highlighted segment before the span
-    if (span.start > lastIndex) {
+    if (effectiveStart > lastIndex) {
       elements.push(
         <span key={`text-${lastIndex}`}>
-          {text.substring(lastIndex, span.start)}
+          {text.substring(lastIndex, effectiveStart)}
         </span>
       );
     }
@@ -40,7 +52,7 @@ export const EvidenceHighlighter: React.FC<EvidenceHighlighterProps> = ({ text, 
       LOW: 'bg-status-emerald/20 border-b border-status-emerald text-status-emerald px-1 rounded'
     }[span.severity] || 'threat-span-high';
 
-    const spanText = text.substring(span.start, span.end);
+    const spanText = text.substring(effectiveStart, effectiveEnd);
 
     elements.push(
       <span
@@ -54,7 +66,7 @@ export const EvidenceHighlighter: React.FC<EvidenceHighlighterProps> = ({ text, 
       </span>
     );
 
-    lastIndex = span.end;
+    lastIndex = effectiveEnd;
   });
 
   // Trailing text

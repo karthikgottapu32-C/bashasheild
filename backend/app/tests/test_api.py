@@ -119,3 +119,20 @@ def test_v1_decision_policy_block_and_allow():
     assert allow_data["decision"] == "ALLOW"
     assert allow_data["risk_score"] < 25.0
 
+def test_root_and_spa_serving():
+    # API JSON client
+    res_json = client.get("/", headers={"Accept": "application/json"})
+    assert res_json.status_code == 200
+    assert res_json.json()["name"] == "BhashaShield API"
+
+    # Browser HTML client (if static build present)
+    res_html = client.get("/", headers={"Accept": "text/html"})
+    assert res_html.status_code == 200
+    assert "text/html" in res_html.headers.get("content-type", "")
+
+    # SPA client-side routing fallback
+    res_spa = client.get("/dashboard")
+    assert res_spa.status_code == 200
+    assert "text/html" in res_spa.headers.get("content-type", "")
+
+
