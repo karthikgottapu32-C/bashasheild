@@ -2,13 +2,13 @@
   "evaluation_metadata": {
     "benchmark_version": "v3.0.0",
     "evaluated_samples": 1200,
-    "timestamp": "2026-11-21T16:55:58.150224Z"
+    "timestamp": "2026-11-21T17:23:01.473818Z"
   },
   "confusion_matrix": {
     "MALICIOUS": {
-      "MALICIOUS": 404,
+      "MALICIOUS": 385,
       "BENIGN": 0,
-      "UNCERTAIN": 68
+      "UNCERTAIN": 87
     },
     "BENIGN": {
       "MALICIOUS": 0,
@@ -16,33 +16,33 @@
       "UNCERTAIN": 6
     },
     "UNCERTAIN": {
-      "MALICIOUS": 18,
-      "BENIGN": 106,
+      "MALICIOUS": 19,
+      "BENIGN": 105,
       "UNCERTAIN": 89
     }
   },
   "metrics": {
-    "malicious_recall": 0.8559,
-    "malicious_recall_fraction": "404/472",
+    "malicious_recall": 0.8157,
+    "malicious_recall_fraction": "385/472",
     "malicious_escape_rate": 0.0,
     "malicious_escape_fraction": "0/472",
-    "malicious_abstention_rate": 0.1441,
-    "malicious_abstention_fraction": "68/472",
+    "malicious_abstention_rate": 0.1843,
+    "malicious_abstention_fraction": "87/472",
     "benign_clean_pass_rate": 0.9883,
     "benign_clean_pass_fraction": "509/515",
     "benign_false_positive_rate": 0.0,
     "benign_false_positive_fraction": "0/515",
     "benign_abstention_rate": 0.0117,
     "benign_abstention_fraction": "6/515",
-    "precision_malicious": 0.9573,
-    "precision_malicious_fraction": "404/422",
-    "precision_benign": 0.8276,
-    "precision_benign_fraction": "509/615",
-    "decision_coverage": 0.8642,
-    "decision_coverage_fraction": "1037/1200",
-    "selective_risk_on_covered": 0.1196,
-    "expected_calibration_error": 0.0847,
-    "brier_score": 0.0111
+    "precision_malicious": 0.953,
+    "precision_malicious_fraction": "385/404",
+    "precision_benign": 0.829,
+    "precision_benign_fraction": "509/614",
+    "decision_coverage": 0.8483,
+    "decision_coverage_fraction": "1018/1200",
+    "selective_risk_on_covered": 0.1218,
+    "expected_calibration_error": 0.084,
+    "brier_score": 0.0109
   },
   "calibration_bins": [
     {
@@ -54,14 +54,14 @@
     },
     {
       "bin_range": "0.6-0.8",
-      "sample_count": 56,
-      "avg_confidence": 0.7416,
+      "sample_count": 51,
+      "avg_confidence": 0.7406,
       "accuracy": 1.0,
-      "calibration_gap": 0.2584
+      "calibration_gap": 0.2594
     },
     {
       "bin_range": "0.8-1.0",
-      "sample_count": 856,
+      "sample_count": 842,
       "avg_confidence": 0.9271,
       "accuracy": 1.0,
       "calibration_gap": 0.0729
@@ -73,14 +73,14 @@
       "actual_malicious": 221,
       "actual_benign": 151,
       "actual_uncertain": 118,
-      "predicted_malicious": 190,
-      "predicted_benign": 224,
-      "predicted_uncertain": 76,
+      "predicted_malicious": 178,
+      "predicted_benign": 223,
+      "predicted_uncertain": 89,
       "matrix": {
         "MALICIOUS": {
-          "MALICIOUS": 185,
+          "MALICIOUS": 172,
           "BENIGN": 0,
-          "UNCERTAIN": 36
+          "UNCERTAIN": 49
         },
         "BENIGN": {
           "MALICIOUS": 0,
@@ -88,8 +88,8 @@
           "UNCERTAIN": 1
         },
         "UNCERTAIN": {
-          "MALICIOUS": 5,
-          "BENIGN": 74,
+          "MALICIOUS": 6,
+          "BENIGN": 73,
           "UNCERTAIN": 39
         }
       }
@@ -151,14 +151,14 @@
       "actual_malicious": 53,
       "actual_benign": 77,
       "actual_uncertain": 18,
-      "predicted_malicious": 52,
+      "predicted_malicious": 50,
       "predicted_benign": 83,
-      "predicted_uncertain": 13,
+      "predicted_uncertain": 15,
       "matrix": {
         "MALICIOUS": {
-          "MALICIOUS": 48,
+          "MALICIOUS": 46,
           "BENIGN": 0,
-          "UNCERTAIN": 5
+          "UNCERTAIN": 7
         },
         "BENIGN": {
           "MALICIOUS": 0,
@@ -177,14 +177,14 @@
       "actual_malicious": 52,
       "actual_benign": 77,
       "actual_uncertain": 18,
-      "predicted_malicious": 49,
+      "predicted_malicious": 46,
       "predicted_benign": 83,
-      "predicted_uncertain": 15,
+      "predicted_uncertain": 18,
       "matrix": {
         "MALICIOUS": {
-          "MALICIOUS": 47,
+          "MALICIOUS": 44,
           "BENIGN": 0,
-          "UNCERTAIN": 5
+          "UNCERTAIN": 8
         },
         "BENIGN": {
           "MALICIOUS": 0,
@@ -203,14 +203,14 @@
       "actual_malicious": 27,
       "actual_benign": 40,
       "actual_uncertain": 7,
-      "predicted_malicious": 27,
+      "predicted_malicious": 26,
       "predicted_benign": 41,
-      "predicted_uncertain": 6,
+      "predicted_uncertain": 7,
       "matrix": {
         "MALICIOUS": {
-          "MALICIOUS": 26,
+          "MALICIOUS": 25,
           "BENIGN": 0,
-          "UNCERTAIN": 1
+          "UNCERTAIN": 2
         },
         "BENIGN": {
           "MALICIOUS": 0,
@@ -286,9 +286,9 @@
     },
     "PROMPT_INJECTION": {
       "total": 251,
-      "predicted_malicious": 219,
+      "predicted_malicious": 203,
       "predicted_benign": 0,
-      "predicted_uncertain": 32
+      "predicted_uncertain": 48
     },
     "DATA_EXFILTRATION": {
       "total": 16,
@@ -298,9 +298,9 @@
     },
     "JAILBREAK": {
       "total": 23,
-      "predicted_malicious": 16,
+      "predicted_malicious": 13,
       "predicted_benign": 0,
-      "predicted_uncertain": 7
+      "predicted_uncertain": 10
     },
     "MALICIOUS_CODE_INSTRUCTION": {
       "total": 10,
@@ -316,8 +316,8 @@
     },
     "UNKNOWN": {
       "total": 213,
-      "predicted_malicious": 18,
-      "predicted_benign": 106,
+      "predicted_malicious": 19,
+      "predicted_benign": 105,
       "predicted_uncertain": 89
     },
     "PHISHING": {

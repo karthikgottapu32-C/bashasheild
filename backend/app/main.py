@@ -28,6 +28,7 @@ from app.core.detector import analyze_text
 from app.core.model_service import model_service
 from app.database import (
     init_db,
+    checkpoint_sqlite_wal,
     get_scans,
     get_scan_by_id,
     delete_scan,
@@ -107,6 +108,10 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.warning(f"DB startup warning: {e}")
     yield
+    try:
+        checkpoint_sqlite_wal()
+    except Exception as e:
+        logger.warning(f"DB shutdown checkpoint warning: {e}")
 
 app = FastAPI(
     title="BhashaShield Intelligence Engine API",
@@ -342,6 +347,10 @@ def clear_scans_endpoint(_: bool = Depends(verify_admin_key)):
 @app.delete("/v1/scans")
 def v1_clear_scans_endpoint(_: bool = Depends(verify_admin_key)):
     return clear_scans_endpoint(_)
+
+@app.delete("/v1/scans/{scan_id}")
+def v1_delete_scan_by_id_endpoint(scan_id: str, _: bool = Depends(verify_admin_key)):
+    return delete_scan_by_id_endpoint(scan_id, _)
 
 @app.get("/evaluation/report")
 def evaluation_report_endpoint():

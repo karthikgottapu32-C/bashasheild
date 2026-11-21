@@ -55,6 +55,7 @@ def analyze_text(request: AnalyzeRequest) -> AnalyzeResponse:
     is_truncated = is_truncated_or_low_context(text)
     is_quoted_or_academic = bool(QUOTED_DISCOURSE_PATTERN.search(text))
     is_defensive_advisory = bool(
+        SECURITY_ADVISORY_PATTERN.search(text) or
         re.match(r'^\s*(?:security|safety)\s+(?:tip|advisory|alert|rule|guideline)\b', text, re.I)
     )
 

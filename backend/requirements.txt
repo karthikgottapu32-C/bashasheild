@@ -8,6 +8,7 @@ python-dotenv>=1.0.0
 
 # HTTP & API Integrations
 requests>=2.31.0
+psycopg2-binary>=2.9.9
 
 # Machine Learning & Scientific Computing (Pinned for Model Compatibility)
 scikit-learn==1.5.2

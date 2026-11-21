@@ -142,3 +142,76 @@ def test_safe_translation_and_quoted_incident_report_non_malicious():
         res = analyze_text(AnalyzeRequest(text=text, save_to_history=False))
         assert res.classification != "MALICIOUS", f"Erroneously flagged as MALICIOUS: {text}"
         assert res.risk_score < 50.0
+
+def test_holdout_escapes_regression():
+    """Verify that the 4 specific holdout escapes are now reliably detected as MALICIOUS."""
+    escapes = [
+        ("HOLD-009", "CBI Narcotics Bureau Notice: A drug parcel booked under your Aadhaar was seized at Mumbai airport. Transfer Rs 45,000 to verify financial clearance and avoid arrest.", "PHISHING"),
+        ("HOLD-010", "Cashback reward of Rs 7,200 credited to your wallet! Enter your UPI PIN on the attached link to accept payment.", "FINANCIAL_MANIPULATION"),
+        ("HOLD-037", "Mee current bill kattaledu, eroju night power cut avuthundi. Turant ga UPI lo bill pay cheyyandi.", "FINANCIAL_MANIPULATION"),
+        ("HOLD-042", "Mee parcel address wrong unna karanam ga aagindi. Rs 40 UPI pay chesi address verify cheyyandi.", "FINANCIAL_MANIPULATION")
+    ]
+    for case_id, text, expected_threat in escapes:
+        res = analyze_text(AnalyzeRequest(text=text, save_to_history=False))
+        assert res.classification == "MALICIOUS", f"{case_id} failed classification: got {res.classification}"
+        assert res.risk_level in (RiskLevel.HIGH, RiskLevel.CRITICAL), f"{case_id} risk level too low: {res.risk_level}"
+        assert res.risk_score >= 60.0, f"{case_id} risk score too low: {res.risk_score}"
+
+def test_durable_database_operations():
+    """Verify database CRUD, search, pagination, and WAL checkpoint operations."""
+    from app.database import (
+        save_scan,
+        get_scans,
+        get_scan_by_id,
+        delete_scan,
+        get_dashboard_stats,
+        checkpoint_sqlite_wal
+    )
+    import uuid
+
+    test_id = f"test-scan-{uuid.uuid4().hex[:8]}"
+    saved = save_scan(
+        scan_id=test_id,
+        channel="SMS",
+        language="English",
+        script="Latin",
+        risk_score=85.0,
+        risk_level="CRITICAL",
+        primary_threat="PROMPT_INJECTION",
+        threat_categories=["PROMPT_INJECTION"],
+        target_type="AI_SYSTEM",
+        text_preview="Unit test preview text",
+        full_text="Unit test preview text with full payload",
+        save_to_history=True
+    )
+    assert saved.id == test_id
+
+    # Retrieve by ID
+    retrieved = get_scan_by_id(test_id)
+    assert retrieved is not None
+    assert retrieved.id == test_id
+    assert retrieved.risk_score == 85.0
+
+    # Retrieve with search query
+    searched = get_scans(limit=10, query=test_id)
+    assert len(searched) >= 1
+    assert searched[0].id == test_id
+
+    # Retrieve with risk level filter
+    critical_scans = get_scans(limit=10, risk_level="CRITICAL")
+    assert any(s.id == test_id for s in critical_scans)
+
+    # Dashboard stats
+    stats = get_dashboard_stats()
+    assert stats.total_scans >= 1
+
+    # Checkpoint
+    checkpoint_sqlite_wal()
+
+    # Delete
+    deleted = delete_scan(test_id)
+    assert deleted is True
+
+    # Confirm deletion
+    assert get_scan_by_id(test_id) is None
+

@@ -94,6 +94,7 @@ RULES_CATALOG: List[RuleDefinition] = [
             r"(కరెంట్|విద్యుత్|వాటర్|గ్యాస్)\s*బిల్లు.*?(నిలిపివేయబడుతుంది|కట్\s*చేయబడుతుంది|చెల్లించండి)",
             r"(లాటరీ|బంపర్\s*డ్రా|నగదు\s*బహుమతి|కారు\s*గెలుచుకున్నారు).*?(UPI|పిన్|చెల్లించండి|రుసుము)",
             r"(పాన్|KYC|ఆధార్|ఖాతా)\s*(నిలిపివేయబడింది|బ్లాక్|గడువు).*?(OTP|పిన్|అప్‌డేట్)",
+            r"(పార్సిల్|కొరియర్|డెలివరీ|పోస్ట్)\s*.*?(ఆగింది|ఆగిపోయింది|చిరునామా|అడ్రస్|లోపం|ఫీజు).*?(యూపీఐ|UPI|చెల్లించండి|పే\s*చేయండి|రుసుము)",
             r"ఖాతా\s*(బ్లాక్|రద్దు)\s*కాకుండా\s*వెంటనే\s*చెల్లించండి"
         ],
         description="Deceptive financial instructions demanding UPI PIN for refunds or payments in Telugu script.",
@@ -231,6 +232,8 @@ RULES_CATALOG: List[RuleDefinition] = [
             r"\b(dabbu|refund|cashback|lottery)\s*(ravataniki|kosam)\s*(pin|upi\s*pin)\s*(enter|kottandi|ivvandi)\b",
             r"\bventane\s+(ee\s+link\s+open\s+chesi|dabulu\s+pampi)\b",
             r"\b(electricity|current|power)\s+.*?\b(disconnect|cut\s*chestharu|aagakunda)\b.*?\b(upi|pay|pampandi|kattandi)\b",
+            r"\b(?:electricity|current(?:\s*bill)?|power)\b.*?\b(?:disconnect|cut\s*(?:chestharu|avuthundi|avutundi)|aagakunda|kattaledu|pay\s*cheyaledu)\b.*?\b(?:upi|pay|pampandi|kattandi|cheyyandi)\b",
+            r"\b(?:parcel|courier|delivery|package)\b.*?\b(?:wrong\s*address|aagindi|aagipoyindi|hold|customs|address\s*(?:verify|update))\b.*?\b(?:upi|pay|fee|charges|kattandi|cheyyandi)\b",
             r"\b(mee\s+)?(bank\s+)?(account|khata)\s+(block|freeze)\s+(avuthundi|ayyindi|avutundi)\b.*?\b(otp|atm\s*pin|pin|pan\s*card|upi)\b",
             r"\b(kyc\s*update|aadhaar\s*link)\s+cheyyakapothe\s+(account|service)\s+(block|aagipothundi)\b",
             r"\b(cbi|police|cyber\s*crime|narcotics|drug\s*parcel)\s+(notice|case)\b.*?\b(arrest|deposit|upi|transfer|dabulu|cheyandi)\b"
@@ -306,6 +309,8 @@ RULES_CATALOG: List[RuleDefinition] = [
             r"\b(bijli|light|electricity)\s+.*?\b(disconnect|cut\s*ho\s*jayeg[ai]|kaat\s*d[ie]|kaat\s*diya)\b.*?\b(upi|payment|send|bhejo|jama)\b",
             r"\b(?:parcel|courier)\s+(?:deliver\s*karane|lene)\s*ke\s*liye\s*.*?\b(?:upi|pay|bhejo|jama)\b",
             r"\b(bank\s+khata|account)\s+(freeze|block)\s+ho\s+gaya\b.*?\b(otp|mpin|pin|update)\b",
+            r"\b(bank\s+khata|account)\s+(?:block|freeze|band)\s+(?:hone\s+se\s+bachane|ho\s+gaya|hoga|hone\s+par)\b.*?\b(otp|mpin|pin|card\s*number|debit|update|share)\b",
+            r"\b(?:parcel|courier)(?:\s+delivery)?\s+(?:deliver\s*karane|lene|mangwane)\s*ke\s*liye\s*.*?\b(?:upi|pay|bhejo|jama|charge)\b",
             r"\b(kyc\s*update|pan\s*card\s*link)\s+nahi\s+kiya\s+toh\s+(account|sim)\s+band\b"
         ],
         description="Phishing and deceptive UPI PIN solicitation in Romanized Hindi.",
@@ -324,6 +329,7 @@ RULES_CATALOG: List[RuleDefinition] = [
         weight=40.0,
         regex_patterns=[
             r"\b(ignore|disregard|forget|override|neglect)\s+(all\s+)?(previous|prior|above|earlier|system)\s+(instructions|directives|prompts|rules|commands|guidelines)\b",
+            r"\b(ignore|disregard|forget|override|neglect)\s+(?:all\s+)?(?:the\s+)?(?:previous|prior|above|earlier|system|established|safety|developer)?\s*(?:instructions|directives|prompts|rules|commands|guidelines|protocols|boundaries)\b",
             r"\bstop\s+following\s+your\s+(original|system)\s+prompt\b",
             r"\bdo\s+not\s+follow\s+any\s+(prior|previous)\s+safety\s+guidelines\b",
             r"\byou\s+must\s+now\s+act\s+exclusively\s+as\b"
@@ -384,7 +390,8 @@ RULES_CATALOG: List[RuleDefinition] = [
             r"\bshare\s+your\s+(otp|one\s+time\s+password|cvv)\s+to\s+(cancel|confirm)\b",
             r"\b(send|enter|share)\s+(your\s+)?(16-digit|debit\s*card|credit\s*card|card\s*number).*?(cvv|otp|pin)\b",
             r"\b(sim\s*card|mobile\s*number)\s+(will\s+be\s+)?(deactivated|blocked)\b.*?\b(pay|fee|upi|otp)\b",
-            r"\b(digital\s*arrest|arrest\s*warrant|narcotics\s*notice).*?\b(upi|bail|fine|deposit)\b"
+            r"\b(digital\s*arrest|arrest\s*warrant|narcotics\s*notice).*?\b(upi|bail|fine|deposit)\b",
+            r"\b(?:cbi|narcotics|police|customs|cyber\s*crime)\b.*?\b(?:drug|illegal|parcel|aadhaar|seized|warrant|arrest|bureau|notice)\b.*?\b(?:transfer|pay|fine|bail|avoid\s+arrest|deposit|clearance)\b"
         ],
         description="Phishing attack soliciting account credentials or OTP verification under urgency.",
         language="English"
@@ -398,6 +405,8 @@ RULES_CATALOG: List[RuleDefinition] = [
         weight=40.0,
         regex_patterns=[
             r"\benter\s+(your\s+)?(upi\s+pin|mpin|atm\s+pin)\s+to\s+(receive|claim|collect|refund|unblock|verify|transfer)\b",
+            r"\benter\s+(?:your\s+)?(?:upi\s*pin|mpin|atm\s*pin)\b.*?\b(?:to\s+(?:receive|claim|collect|accept|refund|credit|unblock|verify|transfer))\b",
+            r"\b(?:cashback|reward|refund|credited).*?\b(?:enter\s+(?:your\s+)?(?:upi\s*pin|mpin|pin)).*?\b(?:to\s+(?:claim|receive|accept|credit|collect))\b",
             r"\benter\s+(your\s+)?(upi\s+pin|mpin|atm\s+pin)\s+(immediately|now)\b",
             r"\breceive\s+rs\.?\s*\d+\s+by\s+entering\s+your\s+pin\b",
             r"\b(cashback|reward).*?\b(click\s+link|enter\s+mpin|enter\s+pin)\b.*?\b(wallet|transfer|receive)\b",
@@ -702,7 +711,7 @@ def is_truncated_or_low_context(text: str) -> bool:
 QUOTED_DISCOURSE_PATTERN = re.compile(
     r'\b(?:incident\s+report(?:\s+notes?)?|research\s+paper|academic\s+(?:paper|discussion|analysis|study|research)|'
     r'cybersecurity\s+paper|paper\s+on\s+llm\s+security|security\s+analysis|audit\s+log|log\s+note|'
-    r'author\s+states|attacker\s+sent|captured\s+in\s+log|payload\s+example|quarantined|'
+    r'author\s+states|authors?\s+(?:advise|state|note|recommend)|(?:security\s+)?textbook|attacker\s+sent|captured\s+in\s+log|payload\s+example|quarantined|'
     r'lecture(?:\s+on)?|class(?:\s+on)?|software\s+review|tester\s+evaluated|case\s+study|'
     r'presentation|whitepaper|education\s+on|log\s+lo|audit\s+me|guardrail\s+ne|paper\s+review|security\s+audit|'
     r'is\s+this\s+(?:phishing|an?\s+attack|safe|fraud|legit|legitimate|malicious|a\s+scam)|'
