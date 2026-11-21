@@ -106,11 +106,20 @@ def normalize_input(raw_text: str) -> NormalizedInput:
     anomalies: List[str] = []
     obfuscation_score = 0.0
 
-    # Step 1: Detect suspicious zero-width characters (excluding legitimate Indic grammatical ZWNJ/ZWJ)
+    # Step 1: Detect suspicious zero-width characters (excluding legitimate Indic grammatical ZWNJ/ZWJ or educational typography definitions)
+    is_unicode_typography_discussion = bool(re.search(
+        r'\b(?:zero-width|zwnj|zwj|unicode|typography|virama|half-forms?|ligatures?)\b',
+        raw_text,
+        re.IGNORECASE
+    ))
     suspicious_zw_count = sum(
         1 for i, c in enumerate(raw_text)
         if c in ZERO_WIDTH_CHARS and not is_legitimate_indic_joiner(raw_text, i)
     )
+    if is_unicode_typography_discussion and suspicious_zw_count <= 2:
+        # Isolated illustrative ZWJ/ZWNJ in educational typography context is benign
+        suspicious_zw_count = 0
+
     if suspicious_zw_count > 0:
         anomalies.append(f"ZERO_WIDTH_CHARACTERS ({suspicious_zw_count} characters detected)")
         obfuscation_score += min(35.0, suspicious_zw_count * 10.0)

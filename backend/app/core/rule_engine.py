@@ -340,7 +340,7 @@ RULES_CATALOG: List[RuleDefinition] = [
         severity="HIGH",
         weight=35.0,
         regex_patterns=[
-            r"\b(print|output|display|reveal|leak|repeat|show)\s+(your\s+)?(complete\s+|entire\s+|full\s+|secret\s+)?(system\s*prompt|initial\s*prompt|system\s*instructions|secret\s*instructions)\b",
+            r"\b(print|output|display|reveal|leak|repeat|show|translate)\s+(your\s+)?(complete\s+|entire\s+|full\s+|secret\s+|initial\s+|developer\s+)*(system\s*prompt|initial\s*prompt|system\s*instructions|secret\s*instructions|developer\s*instructions)\b",
             r"\b(send|exfiltrate|transmit|post)\s+(the\s+|all\s+)?(conversation\s+history|chat\s+history|conversations|user\s+data|secrets|api\s+keys?)(.*?)to\s+https?://\S+\b",
             r"\boutput\s+the\s+above\s+text\s+as\s+a\s+base64\s+encoded\s+string\b"
         ],
@@ -375,7 +375,9 @@ RULES_CATALOG: List[RuleDefinition] = [
             r"\benter\s+(your\s+)?(upi\s+pin|mpin|atm\s+pin)\s+to\s+(receive|claim|collect|refund|unblock|verify)\b",
             r"\benter\s+(your\s+)?(upi\s+pin|mpin|atm\s+pin)\s+(immediately|now)\b",
             r"\breceive\s+rs\.?\s*\d+\s+by\s+entering\s+your\s+pin\b",
-            r"\bupi\s+cashback\s+credited\s*:\s*enter\s+pin\s+now\b"
+            r"\bupi\s+cashback\s+credited\s*:\s*enter\s+pin\s+now\b",
+            r"\b(electricity|power|water|gas|sim\s*card)\s+(will\s+be\s+)?(disconnected|blocked|suspended)\b.*?\b(pay|upi|transfer)\b",
+            r"\b(pay|upi\s+transfer)\s+(rs\.?\s*\d+|\d+\s*rupees?).*?\b(to\s+avoid\s+disconnection|immediately\s+via\s+upi)\b"
         ],
         description="Deceptive financial trap claiming UPI PIN is required to receive money.",
         language="English"
@@ -626,7 +628,8 @@ def is_inside_quotes(text: str, start: int, end: int) -> bool:
     return sq_open or dq_open or curly_open or single_curly_open or fence_open
 
 QUOTED_DISCOURSE_PATTERN = re.compile(
-    r'\b(?:incident\s+report|research\s+paper|security\s+analysis|audit\s+log|log\s+note|'
+    r'\b(?:incident\s+report|research\s+paper|academic\s+(?:paper|discussion|analysis|study|research)|'
+    r'cybersecurity\s+paper|paper\s+on\s+llm\s+security|security\s+analysis|audit\s+log|log\s+note|'
     r'author\s+states|attacker\s+sent|captured\s+in\s+log|payload\s+example|quarantined|'
     r'log\s+lo|audit\s+me|guardrail\s+ne|paper\s+review|security\s+audit)\b',
     re.IGNORECASE
@@ -686,7 +689,7 @@ def evaluate_rules(text: str) -> Tuple[List[RuleFinding], List[HighlightedSpan],
                     continue
 
                 # Skip quoted text inside legitimate translation queries (unless accompanied by execution/obey command)
-                if (is_inside_quotes(text, raw_start, raw_end) or "translation" in text.lower()) and SAFE_TRANSLATION_PATTERN.search(text):
+                if is_inside_quotes(text, raw_start, raw_end) and SAFE_TRANSLATION_PATTERN.search(text):
                     if not ADVERSARIAL_TRANSLATION_COMMAND.search(text):
                         continue
 
@@ -722,7 +725,9 @@ def evaluate_rules(text: str) -> Tuple[List[RuleFinding], List[HighlightedSpan],
                     has_human_target = True
 
     # 4. If obfuscation anomalies detected, attach anomaly evidence
-    if norm_input.detected_anomalies:
+    # Note: Only generate an active threat finding if an actual adversarial rule matched,
+    # or if significant obfuscation score (>=20.0) indicates severe evasion attempts (base64, spacing, multi-homoglyph).
+    if norm_input.detected_anomalies and (findings or norm_input.obfuscation_score >= 20.0):
         total_score += norm_input.obfuscation_score
         anomaly_desc = "; ".join(norm_input.detected_anomalies)
         
