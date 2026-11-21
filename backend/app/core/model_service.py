@@ -137,6 +137,22 @@ class ModelService:
         # Scikit-Learn Inference
         if self.model_backend == "sklearn":
             try:
+                if hasattr(self.model, "analyze_sample"):
+                    analysis = self.model.analyze_sample(text)
+                    pred_class = analysis["predicted_class"]
+                    is_malicious = (pred_class not in ("BENIGN", "0", 0, "UNKNOWN"))
+                    return ModelFinding(
+                        predicted_class=str(pred_class),
+                        probability=analysis["probability"],
+                        is_malicious=is_malicious,
+                        model_name=getattr(self.model, "name", "BhashaShield-Multilingual-Classifier-v1"),
+                        probabilities_by_class=analysis["probabilities_by_class"],
+                        margin=analysis["margin"],
+                        entropy=analysis["entropy"],
+                        is_ambiguous=analysis["is_ambiguous"],
+                        is_ood=analysis.get("is_ood", False)
+                    )
+
                 probs = self.model.predict_proba([text])[0]
                 classes = list(getattr(self.model, "classes_", ["BENIGN", "PROMPT_INJECTION"]))
                 sorted_idx = np.argsort(probs)[::-1]
@@ -149,7 +165,7 @@ class ModelService:
 
                 p_safe = np.clip(probs, 1e-9, 1.0)
                 entropy = float(-np.sum(p_safe * np.log2(p_safe)) / np.log2(max(2, len(probs))))
-                is_ambiguous = (margin < 0.20 or entropy > 0.75)
+                is_ambiguous = (margin < 0.25 or entropy > 0.70)
 
                 # Determine if malicious
                 is_malicious = (pred_class not in ("BENIGN", "0", 0, "UNKNOWN"))
@@ -158,11 +174,12 @@ class ModelService:
                     predicted_class=str(pred_class),
                     probability=round(max_prob, 3),
                     is_malicious=is_malicious,
-                    model_name=getattr(self.model, "name", "BhashaShield-ML-v1"),
+                    model_name=getattr(self.model, "name", "BhashaShield-Multilingual-Classifier-v1"),
                     probabilities_by_class={str(c): round(float(p), 3) for c, p in zip(classes, probs)},
                     margin=round(margin, 3),
                     entropy=round(entropy, 3),
-                    is_ambiguous=is_ambiguous
+                    is_ambiguous=is_ambiguous,
+                    is_ood=False
                 )
             except Exception as e:
                 logger.warning(f"Scikit-learn inference error: {e}")

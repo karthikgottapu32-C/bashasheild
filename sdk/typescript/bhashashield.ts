@@ -43,6 +43,8 @@ export interface AnalyzeResponse {
   }>;
   matching_evidence: string[];
   confidence: number;
+  uncertainty?: number;
+  classification?: 'BENIGN' | 'MALICIOUS' | 'UNCERTAIN';
   model_status: string;
   recommended_actions: string[];
   explanation: string;

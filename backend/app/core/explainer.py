@@ -15,7 +15,20 @@ def generate_explanation_and_actions(
     rule_findings: List[RuleFinding],
     model_findings: Optional[ModelFinding] = None
 ) -> Tuple[str, List[str]]:
-    # If no threats found:
+    # If uncertain:
+    if risk_level == RiskLevel.UNCERTAIN or categories == ["UNKNOWN"]:
+        explanation = (
+            f"Security evaluation is UNCERTAIN for this {language} ({script} script) input. "
+            f"The available evidence is insufficient, ambiguous, or out-of-distribution to establish whether the text is safe or malicious."
+        )
+        recommendations = [
+            "Do NOT assume this input is safe for downstream execution.",
+            "Route prompt to human review or enforce strict execution containment.",
+            "Verify input provenance and request clarification if context is missing."
+        ]
+        return explanation, recommendations
+
+    # If no threats found (explicitly benign):
     if risk_level == RiskLevel.LOW or not categories or categories == ["BENIGN"]:
         explanation = (
             f"No malicious prompt injections, exfiltration patterns, or social engineering tactics "

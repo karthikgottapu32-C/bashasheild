@@ -8,9 +8,12 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.pipeline import FeatureUnion, Pipeline
 from sklearn.calibration import CalibratedClassifierCV
 from app.dataset.generator import export_synthetic_datasets
-from app.config import settings
+from app.config import BASE_DIR, settings
 from app.ml.classifier import MultilingualSecurityClassifier
-def train_model(data_dir: str = "backend/data", model_out_path: str = None) -> Dict[str, Any]:
+
+def train_model(data_dir: str = None, model_out_path: str = None) -> Dict[str, Any]:
+    if not data_dir:
+        data_dir = str(BASE_DIR / "data")
     if not model_out_path:
         model_out_path = settings.MODEL_PATH
 

@@ -19,7 +19,8 @@ from app.models import (
     InputChannel,
     GuardDecisionRequest,
     GuardDecisionResponse,
-    PolicyDecision
+    PolicyDecision,
+    RiskLevel
 )
 from app.core.detector import analyze_text
 from app.core.model_service import model_service
@@ -391,10 +392,10 @@ def v1_guard_decision_endpoint(request: GuardDecisionRequest):
         decision = PolicyDecision.BLOCK
         action = "Block execution immediately; do not dispatch prompt to downstream LLM."
         reason = f"Critical threat detected: {scan.primary_threat or 'High-Risk Injection'}. Risk score: {scan.risk_score}"
-    elif scan.risk_score >= 25.0 or has_high or (scan.model_findings and scan.model_findings.probability >= 0.70 and scan.model_findings.is_malicious):
+    elif getattr(scan, "classification", "") == "UNCERTAIN" or scan.risk_level == RiskLevel.UNCERTAIN or scan.risk_score >= 25.0 or has_high:
         decision = PolicyDecision.REVIEW
         action = "Flag prompt for human security review or apply strict model output sandboxing."
-        reason = f"Suspicious activity detected: {scan.primary_threat or 'Anomaly'}. Risk score: {scan.risk_score}"
+        reason = f"Ambiguous or uncertain input: {scan.primary_threat or 'Uncertain'}. Risk score: {scan.risk_score}"
     else:
         decision = PolicyDecision.ALLOW
         action = "Safe to proceed; dispatch prompt to model."

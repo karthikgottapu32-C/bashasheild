@@ -35,7 +35,7 @@ def analyze_text(request: AnalyzeRequest) -> AnalyzeResponse:
     model_finding = model_service.predict(text)
     model_status = model_service.status
 
-    # 4. Authoritative Decision & Calibrated Risk Synthesis
+    # 4. Authoritative Three-State Decision & Calibrated Risk Synthesis
     has_critical_rule = any(rf.severity == "CRITICAL" for rf in rule_findings)
     has_high_rule = any(rf.severity == "HIGH" for rf in rule_findings)
     has_medium_rule = any(rf.severity == "MEDIUM" for rf in rule_findings)
@@ -43,7 +43,8 @@ def analyze_text(request: AnalyzeRequest) -> AnalyzeResponse:
     cat_names = [c.value if hasattr(c, "value") else str(c) for c in categories]
 
     if rule_findings:
-        # Case A: Deterministic rules matched
+        # Case A: Deterministic rules matched -> MALICIOUS
+        classification = "MALICIOUS"
         if has_critical_rule:
             combined_score = min(100.0, max(85.0, rule_risk_score))
             risk_level = RiskLevel.CRITICAL
@@ -51,10 +52,10 @@ def analyze_text(request: AnalyzeRequest) -> AnalyzeResponse:
             combined_score = min(84.0, max(60.0, rule_risk_score))
             risk_level = RiskLevel.HIGH
         elif has_medium_rule:
-            combined_score = min(59.0, max(30.0, rule_risk_score))
+            combined_score = min(59.0, max(35.0, rule_risk_score))
             risk_level = RiskLevel.MEDIUM
         else:
-            combined_score = min(29.0, max(15.0, rule_risk_score))
+            combined_score = min(34.0, max(20.0, rule_risk_score))
             risk_level = RiskLevel.LOW
 
         primary_threat = cat_names[0] if cat_names else ThreatCategory.PROMPT_INJECTION.value
@@ -64,18 +65,20 @@ def analyze_text(request: AnalyzeRequest) -> AnalyzeResponse:
     else:
         # Case B: No rules triggered. Evaluate ML Model with Calibrated Confidence & OOD Checks
         if model_finding and model_finding.is_malicious:
-            # Check if model prediction is decisive (not ambiguous, high confidence margin)
+            # Check if model prediction is decisive (not ambiguous, high confidence margin, not OOD)
             is_decisive = (
                 model_finding.probability >= 0.70 and
                 getattr(model_finding, "margin", 1.0) >= 0.25 and
-                not getattr(model_finding, "is_ambiguous", False)
+                not getattr(model_finding, "is_ambiguous", False) and
+                not getattr(model_finding, "is_ood", False)
             )
             if is_decisive:
-                # Decisive statistical ML detection
-                combined_score = round(min(80.0, max(35.0, model_finding.probability * 75.0)), 1)
+                # Confirmed MALICIOUS
+                classification = "MALICIOUS"
+                combined_score = round(min(80.0, max(45.0, model_finding.probability * 75.0)), 1)
                 if combined_score >= 75.0:
                     risk_level = RiskLevel.CRITICAL
-                elif combined_score >= 50.0:
+                elif combined_score >= 55.0:
                     risk_level = RiskLevel.HIGH
                 else:
                     risk_level = RiskLevel.MEDIUM
@@ -92,23 +95,66 @@ def analyze_text(request: AnalyzeRequest) -> AnalyzeResponse:
                 confidence = round(model_finding.probability, 2)
                 uncertainty = round(1.0 - confidence, 2)
             else:
-                # Low confidence, marginal probability (e.g. 0.501) or ambiguous: Abstain / Benign
+                # Ambiguous, low margin, or OOD: UNCERTAIN (Never coerce to BENIGN!)
+                classification = "UNCERTAIN"
+                combined_score = 40.0
+                risk_level = RiskLevel.UNCERTAIN
+                cat_names = [ThreatCategory.UNKNOWN.value]
+                primary_threat = "UNCERTAIN / AMBIGUOUS"
+                target_type = TargetType.NONE
+                confidence = round(model_finding.probability, 2)
+                uncertainty = round(min(0.85, max(0.50, 1.0 - confidence + 0.35)), 2)
+        else:
+            # Model predicts BENIGN or model is not loaded
+            is_confirmed_benign = (
+                model_finding is not None and
+                not model_finding.is_malicious and
+                model_finding.probability >= 0.70 and
+                getattr(model_finding, "margin", 1.0) >= 0.25 and
+                not getattr(model_finding, "is_ambiguous", False) and
+                not getattr(model_finding, "is_ood", False) and
+                detected_language != "Undetermined" and
+                script_confidence >= 0.50
+            )
+            if is_confirmed_benign:
+                classification = "BENIGN"
                 combined_score = 0.0
                 risk_level = RiskLevel.LOW
                 cat_names = [ThreatCategory.BENIGN.value]
                 primary_threat = None
                 target_type = TargetType.NONE
-                confidence = 0.88
-                uncertainty = 0.12
-        else:
-            # Model predicts BENIGN or model is not loaded
-            combined_score = 0.0
-            risk_level = RiskLevel.LOW
-            cat_names = [ThreatCategory.BENIGN.value]
-            primary_threat = None
-            target_type = TargetType.NONE
-            confidence = round(model_finding.probability, 2) if model_finding else 0.90
-            uncertainty = round(1.0 - confidence, 2)
+                confidence = round(model_finding.probability, 2)
+                uncertainty = round(1.0 - confidence, 2)
+            elif model_finding is None:
+                # Rules-only mode with no rules matched and standard script
+                if detected_language != "Undetermined" and script_confidence >= 0.50:
+                    classification = "BENIGN"
+                    combined_score = 0.0
+                    risk_level = RiskLevel.LOW
+                    cat_names = [ThreatCategory.BENIGN.value]
+                    primary_threat = None
+                    target_type = TargetType.NONE
+                    confidence = 0.85
+                    uncertainty = 0.15
+                else:
+                    classification = "UNCERTAIN"
+                    combined_score = 40.0
+                    risk_level = RiskLevel.UNCERTAIN
+                    cat_names = [ThreatCategory.UNKNOWN.value]
+                    primary_threat = "UNCERTAIN / AMBIGUOUS"
+                    target_type = TargetType.NONE
+                    confidence = 0.50
+                    uncertainty = 0.50
+            else:
+                # Model predicted BENIGN but with high entropy, low margin, or OOD activation: UNCERTAIN
+                classification = "UNCERTAIN"
+                combined_score = 40.0
+                risk_level = RiskLevel.UNCERTAIN
+                cat_names = [ThreatCategory.UNKNOWN.value]
+                primary_threat = "UNCERTAIN / AMBIGUOUS"
+                target_type = TargetType.NONE
+                confidence = round(model_finding.probability, 2)
+                uncertainty = round(min(0.85, max(0.50, 1.0 - confidence + 0.35)), 2)
 
     # 5. Matching evidence collection
     matching_evidence: List[str] = []
@@ -117,9 +163,16 @@ def analyze_text(request: AnalyzeRequest) -> AnalyzeResponse:
         if evidence_str not in matching_evidence:
             matching_evidence.append(evidence_str)
 
-    if model_finding and model_finding.is_malicious and risk_level != RiskLevel.LOW:
+    if model_finding and classification == "MALICIOUS" and not rule_findings:
         matching_evidence.append(
-            f"[{model_finding.model_name}] Statistical ML inference classified as {model_finding.predicted_class} (Confidence: {model_finding.probability:.2f})"
+            f"[{model_finding.model_name}] Statistical ML inference classified as {model_finding.predicted_class} (Confidence: {model_finding.probability:.2f}, Margin: {getattr(model_finding, 'margin', 0.0):.2f})"
+        )
+    elif classification == "UNCERTAIN":
+        mod_name = model_finding.model_name if model_finding else "Detection Engine"
+        margin_val = getattr(model_finding, "margin", 0.0) if model_finding else 0.0
+        entropy_val = getattr(model_finding, "entropy", 0.0) if model_finding else 0.0
+        matching_evidence.append(
+            f"[{mod_name}] Input classified as UNCERTAIN: feature activations are ambiguous or out-of-distribution (Margin: {margin_val:.2f}, Entropy: {entropy_val:.2f})."
         )
 
     # 6. Generate human-understandable explanation and actionable recommendations
@@ -171,6 +224,7 @@ def analyze_text(request: AnalyzeRequest) -> AnalyzeResponse:
         model_findings=model_finding,
         confidence=confidence,
         uncertainty=uncertainty,
+        classification=classification,
         model_status=model_status,
         recommended_actions=recommended_actions,
         explanation=explanation,

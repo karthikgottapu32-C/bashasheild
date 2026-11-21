@@ -36,9 +36,9 @@ def run_evaluation(test_data_path: str = None, model_path: str = None) -> Dict[s
     with open(test_data_path, "r", encoding="utf-8") as f:
         test_samples = json.load(f)
 
+    from app.core.detector import analyze_text
     from app.core.model_service import model_service
-    from app.core.rule_engine import evaluate_rules
-    from app.models import ThreatCategory
+    from app.models import AnalyzeRequest, ThreatCategory
 
     # Ensure model is checked
     if not model_service.is_loaded and os.path.exists(model_path):
@@ -51,6 +51,7 @@ def run_evaluation(test_data_path: str = None, model_path: str = None) -> Dict[s
 
     # Global binary threat detection metrics (Malicious vs Benign)
     tp, fp, fn, tn = 0, 0, 0, 0
+    uncertain_count = 0
 
     # Prompt injection specific metrics
     pi_tp, pi_fp, pi_fn, pi_tn = 0, 0, 0, 0
@@ -70,32 +71,31 @@ def run_evaluation(test_data_path: str = None, model_path: str = None) -> Dict[s
         actual_cat = sample["threat_category"]
         is_pi = (actual_cat == "PROMPT_INJECTION")
         fam = sample.get("template_family", "UNKNOWN")
+        lang = sample["language"]
+        script = sample["script"]
+        channel = sample["channel"]
 
         # Measure latency
         t0 = time.perf_counter()
 
-        # Hybrid evaluation: Layer 1 normalizer + Layer 2 rule engine
-        findings, spans, score, cats, target = evaluate_rules(text)
-        rules_triggered = len(findings) > 0 or score >= 20.0
-        rules_pi = any(
-            (c.value if hasattr(c, "value") else str(c)) in ("PROMPT_INJECTION", ThreatCategory.PROMPT_INJECTION.value)
-            for c in cats
-        )
-
-        ml_finding = model_service.predict(text) if model_service.is_loaded else None
-        ml_malicious = ml_finding.is_malicious if ml_finding else False
-        ml_pi = (ml_finding.predicted_class == "PROMPT_INJECTION") if ml_finding else False
-
-        # Hybrid Decision: Attack if rules fire with critical/high OR ML confidence > 0.60
-        pred_malicious = rules_triggered or (ml_malicious and ml_finding and ml_finding.probability >= 0.60)
-        pred_is_pi = rules_pi or (ml_pi and ml_finding and ml_finding.probability >= 0.60)
+        # Evaluate through authoritative detection pipeline
+        res = analyze_text(AnalyzeRequest(
+            text=text,
+            channel=channel,
+            save_to_history=False
+        ))
 
         t_elapsed = (time.perf_counter() - t0) * 1000.0
         latencies_ms.append(t_elapsed)
 
-        lang = sample["language"]
-        script = sample["script"]
-        channel = sample["channel"]
+        pred_malicious = (res.classification == "MALICIOUS")
+        if res.classification == "UNCERTAIN":
+            uncertain_count += 1
+
+        pred_is_pi = (res.classification == "MALICIOUS" and (
+            "PROMPT_INJECTION" in res.threat_categories or
+            res.primary_threat in ("PROMPT_INJECTION", "JAILBREAK", "INSTRUCTION_OVERRIDE")
+        ))
 
         # Global binary
         if actual_malicious and pred_malicious:
@@ -157,6 +157,8 @@ def run_evaluation(test_data_path: str = None, model_path: str = None) -> Dict[s
         "prompt_injection_recall": pi_prf["recall"],
         "prompt_injection_f1": pi_prf["f1_score"],
         "total_samples": len(test_samples),
+        "uncertain_samples": uncertain_count,
+        "abstention_rate": round(uncertain_count / len(test_samples), 4) if test_samples else 0.0,
         "confusion_matrix": {
             "true_positives": tp,
             "false_positives": fp,

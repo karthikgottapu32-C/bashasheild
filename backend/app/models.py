@@ -70,6 +70,7 @@ class ModelFinding(BaseModelConfig):
     margin: Optional[float] = Field(None, description="Difference between top probability and second highest probability")
     entropy: Optional[float] = Field(None, description="Normalized prediction entropy (uncertainty)")
     is_ambiguous: Optional[bool] = Field(False, description="True if margin is narrow or entropy is high")
+    is_ood: Optional[bool] = Field(False, description="True if input has very low feature norm (out-of-distribution)")
 
 class AnalyzeRequest(BaseModelConfig):
     text: str = Field(..., min_length=1, max_length=10000, description="Input text to scan for security threats")
@@ -96,6 +97,7 @@ class AnalyzeResponse(BaseModelConfig):
     model_findings: Optional[ModelFinding] = None
     confidence: float = Field(..., ge=0.0, le=1.0)
     uncertainty: float = Field(..., ge=0.0, le=1.0)
+    classification: str = Field("BENIGN", description="Three-state security classification: BENIGN, MALICIOUS, or UNCERTAIN")
     model_status: str
     recommended_actions: List[str]
     explanation: str

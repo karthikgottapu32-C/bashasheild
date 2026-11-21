@@ -40,7 +40,9 @@ COMMON_ENGLISH_WORDS = {
     "take", "people", "into", "year", "your", "good", "some", "could", "them", "see",
     "other", "than", "then", "now", "look", "only", "come", "its", "over", "think",
     "also", "back", "after", "use", "two", "how", "our", "work", "first", "well", "way",
-    "even", "new", "want", "because", "any", "these", "give", "day", "most", "us"
+    "even", "new", "want", "because", "any", "these", "give", "day", "most", "us",
+    "string", "test", "hello", "user", "input", "sample", "example", "text", "demo",
+    "value", "name", "code", "data", "file", "system", "query", "run", "help", "please"
 }
 
 def analyze_script(text: str) -> Dict[str, Any]:

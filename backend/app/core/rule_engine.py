@@ -24,9 +24,9 @@ class RuleDefinition:
         self.weight = weight
         self.description = description
         self.language = language
-        # Compile patterns case-insensitively
+        # Compile patterns case-insensitively with Unicode and DOTALL support
         self.compiled_patterns = [
-            re.compile(p, re.IGNORECASE | re.UNICODE) for p in regex_patterns
+            re.compile(p, re.IGNORECASE | re.UNICODE | re.DOTALL) for p in regex_patterns
         ]
 
 # Definitive catalog of multilingual rules covering Telugu, Hindi, Romanized, and English
@@ -499,6 +499,68 @@ RULES_CATALOG: List[RuleDefinition] = [
         ],
         description="Coercive social engineering masquerading as law enforcement or regulatory authorities.",
         language="Universal"
+    ),
+    RuleDefinition(
+        rule_id="RULE_INDIRECT_RAG_001",
+        name="Universal: Indirect RAG Injection / Document Context Hijacking",
+        category=ThreatCategory.PROMPT_INJECTION,
+        target_type=TargetType.AI_SYSTEM,
+        severity="CRITICAL",
+        weight=45.0,
+        regex_patterns=[
+            r"\[(?:RETRIEVED_DOC|PAGE_EXCERPT|DOCUMENT_NOTE)\]\s*:\s*(?:ATTENTION\s+AI\s+ASSISTANT|Stop\s+processing|Override\s+instructions?|exfiltrate|dump)",
+            r"<!--\s*AI\s*Instruction\s*:\s*(?:Ignore|Override|Exfiltrate)",
+            r"\[(?:డాక్యుమెంట్\s*నోట్|దస్తావేజ్\s*అంశ|దస్తావేజు\s*అంశం|दस्तावेज़\s*अंश|दस्तावेज\s*अंश)\]\s*:\s*(?:ఏఐ|ఎఐ|एआई|AI)\s*(?:అసిస్టెంట్|సహాయకుడు|सहायक|सहायता)?.*?(?:ఆపివేసి|छోడెం|छोड़ें|छोड़ो|రహస్యాలను|పాస్‌వర్డ్|पासवर्ड|నिकाले|తీసివేయి|ప్రింట్)",
+            r"(?:Document Reference Context|Web search summary)\s*:\s*\[(?:RETRIEVED_DOC|PAGE_EXCERPT)\]"
+        ],
+        description="Indirect prompt injection payload embedded inside retrieved documents, search excerpts, or HTML comments.",
+        language="Universal"
+    ),
+    RuleDefinition(
+        rule_id="RULE_PIGGYBACK_001",
+        name="Universal: Piggybacked Injection Delimiter",
+        category=ThreatCategory.PROMPT_INJECTION,
+        target_type=TargetType.AI_SYSTEM,
+        severity="CRITICAL",
+        weight=42.0,
+        regex_patterns=[
+            r"\[(?:NOTE|Special\s+Instruction|P\.?S\.?|Instruction)\s*:\s*(?:AI|Assistant)?,?\s*(?:ignore|forget|disregard|leak|print)\b[^\]]+\]",
+            r"\((?:గమనిక|విశేష\s*సూచన|विशेष\s*निर्देश)\s*:\s*[^)]*(?:పట్టించుకోవద్దు|छोड़ो|छोड़ें|చూపించండి|చెప్పు|నikalo|निकालो|రహస్యాలు|పాస్‌వర్డ్)[^)]*\)",
+            r"\[(?:विशेष\s*निर्देश|గమనిక|Instruction)\s*:\s*[^\]]*(?:छोड़ो|छोड़ें|निकालो|leak|పాస్‌వర్డ్|पासवर्ड)[^\]]*\]",
+            r"\bP\.?S\.?\s+(?:AI|Assistant)\s+(?:ignore|forget|leak|print)\b"
+        ],
+        description="Piggybacked injection attempting to smuggle instructions inside parenthetical notes or delimiters.",
+        language="Universal"
+    ),
+    RuleDefinition(
+        rule_id="RULE_DRIFT_001",
+        name="Universal: Multi-turn Agreement Drift / Rule Suspension",
+        category=ThreatCategory.JAILBREAK,
+        target_type=TargetType.AI_SYSTEM,
+        severity="CRITICAL",
+        weight=42.0,
+        regex_patterns=[
+            r"(?:now\s+that\s+we\s+established|we\s+already\s+agreed\s+that)\s+(?:that\s+)?(?:safety\s+rules\s+can\s+be\s+suspended|rules\s+are\s+off|rules\s+don't\s+apply)",
+            r"(?:మనం\s+ఇంతకుముందే\s+నియమాలను\s+సస్పెండ్|safety\s+filter\s+off\s+ani|safety\s+rules\s+suspended)",
+            r"(?:चूंकि\s+हमने\s+पहले\s+ही\s+सहमति|परीक्षण\s+में\s+नियम\s+लागू\s+नहीं\s+होते|pichli\s+baat\s+ke\s+hisaab\s+se\s+safety\s+rules\s+suspended)",
+            r"(?:Mundhu\s+manam\s+anukunnam\s+kada\s+safety\s+filter\s+off|Pichli\s+baat\s+ke\s+hisaab\s+se\s+safety\s+rules\s+suspended)"
+        ],
+        description="Multi-turn drift jailbreak asserting that safety boundaries were previously revoked or suspended.",
+        language="Universal"
+    ),
+    RuleDefinition(
+        rule_id="RULE_FEW_SHOT_001",
+        name="Universal: Few-shot Conversational Injection Framing",
+        category=ThreatCategory.PROMPT_INJECTION,
+        target_type=TargetType.AI_SYSTEM,
+        severity="CRITICAL",
+        weight=42.0,
+        regex_patterns=[
+            r"(?:User|Human|యూజర్|उपयोगकर्ता)\s*:.*?\n\s*(?:Assistant|AI|సహాయకుడు|सहायक)\s*:.*?\n\s*(?:User|Human|యూజర్|उपयोगकर्ता)\s*:.*?(?:ignore|forget|leak|rules|secret|print|marchipo|bhool|రహస్యాలు|పట్టించుకోవద్దు|పాస్‌వర్డ్|पासवर्ड|नियम)",
+            r"\b(?:Assistant|AI|సహాయకుడు|सहायक)\s*:\s*(?:Sure|Theek|సరే|अवश्य)\s*:"
+        ],
+        description="Adversarial few-shot conversational framing attempting to induce prompt injection via completion conditioning.",
+        language="Universal"
     )
 ]
 
@@ -547,6 +609,39 @@ PROGRAMMING_CONTEXT_PATTERN = re.compile(
     re.IGNORECASE
 )
 
+def is_inside_quotes(text: str, start: int, end: int) -> bool:
+    """
+    Checks if a matched span (start, end) is completely enclosed within quotation marks
+    such as '', "", “”, ‘’, or code fences ```.
+    """
+    prefix = text[:start]
+    suffix = text[end:]
+    
+    sq_open = (prefix.count("'") % 2 == 1) and (suffix.count("'") % 2 == 1)
+    dq_open = (prefix.count('"') % 2 == 1) and (suffix.count('"') % 2 == 1)
+    curly_open = (prefix.count('“') > prefix.count('”')) and (suffix.count('”') > prefix.count('“'))
+    single_curly_open = (prefix.count('‘') > prefix.count('’')) and (suffix.count('’') > prefix.count('‘'))
+    fence_open = (prefix.count('`') % 2 == 1) and (suffix.count('`') % 2 == 1)
+
+    return sq_open or dq_open or curly_open or single_curly_open or fence_open
+
+QUOTED_DISCOURSE_PATTERN = re.compile(
+    r'\b(?:incident\s+report|research\s+paper|security\s+analysis|audit\s+log|log\s+note|'
+    r'author\s+states|attacker\s+sent|captured\s+in\s+log|payload\s+example|quarantined|'
+    r'log\s+lo|audit\s+me|guardrail\s+ne|paper\s+review|security\s+audit)\b',
+    re.IGNORECASE
+)
+
+SAFE_TRANSLATION_PATTERN = re.compile(
+    r'\b(?:translate|translation|anuvad|anuvadh|meaning|artha|batao|cheppandi|cheyali|english\s+lo|hindi\s+mein)\b',
+    re.IGNORECASE
+)
+
+ADVERSARIAL_TRANSLATION_COMMAND = re.compile(
+    r'\b(?:obey|execute|run|follow|paalan|patinchandi|palinchandi|maniye)\b',
+    re.IGNORECASE
+)
+
 def evaluate_rules(text: str) -> Tuple[List[RuleFinding], List[HighlightedSpan], float, List[ThreatCategory], TargetType]:
     findings: List[RuleFinding] = []
     raw_spans: List[HighlightedSpan] = []
@@ -584,6 +679,15 @@ def evaluate_rules(text: str) -> Tuple[List[RuleFinding], List[HighlightedSpan],
                 # Skip programming questions discussing overriding a method
                 if is_programming and rule.category == ThreatCategory.INSTRUCTION_OVERRIDE:
                     if "instruction" not in matched_str.lower() and "previous" not in matched_str.lower():
+                        continue
+
+                # Skip quoted payload inside security incident reports, audit logs, or research papers
+                if is_inside_quotes(text, raw_start, raw_end) and QUOTED_DISCOURSE_PATTERN.search(text):
+                    continue
+
+                # Skip quoted text inside legitimate translation queries (unless accompanied by execution/obey command)
+                if (is_inside_quotes(text, raw_start, raw_end) or "translation" in text.lower()) and SAFE_TRANSLATION_PATTERN.search(text):
+                    if not ADVERSARIAL_TRANSLATION_COMMAND.search(text):
                         continue
 
                 finding = RuleFinding(
