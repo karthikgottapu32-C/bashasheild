@@ -5,15 +5,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf 
 
 WORKDIR /app
 
-# Dual-context support:
-# 1. Render Root Directory set to 'backend' (context: backend/) -> requirements.txt is at context root
-# 2. Repo Root context (context: .) -> requirements.txt is at backend/requirements.txt
-COPY requirements.txt* backend/requirements.txt* ./
-RUN if [ -f requirements.txt ]; then \
-        pip install --no-cache-dir -r requirements.txt; \
-    elif [ -f backend/requirements.txt ]; then \
-        pip install --no-cache-dir -r backend/requirements.txt; \
-    fi
+COPY backend/requirements.txt ./requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy application source and data
 COPY . ./
