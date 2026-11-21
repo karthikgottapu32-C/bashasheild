@@ -1,0 +1,46 @@
+{
+  "benchmark_version": "v3.0.0",
+  "total_samples": 1200,
+  "unique_raw_texts": 1200,
+  "unique_normalized_keys": 1200,
+  "exact_duplicates": 0,
+  "normalized_duplicates": 0,
+  "v2_corrected_samples_verified": true,
+  "class_distribution": {
+    "BENIGN": 515,
+    "MALICIOUS": 472,
+    "UNCERTAIN": 213
+  },
+  "threat_category_distribution": {
+    "BENIGN": 515,
+    "PROMPT_INJECTION": 251,
+    "DATA_EXFILTRATION": 16,
+    "JAILBREAK": 23,
+    "MALICIOUS_CODE_INSTRUCTION": 10,
+    "FINANCIAL_MANIPULATION": 147,
+    "UNKNOWN": 213,
+    "PHISHING": 25
+  },
+  "language_distribution": {
+    "en": 490,
+    "te": 153,
+    "hi": 152,
+    "te-Latn": 148,
+    "hi-Latn": 147,
+    "mixed": 74,
+    "te-en": 18,
+    "hi-en": 18
+  },
+  "script_distribution": {
+    "Latin": 834,
+    "Telugu": 153,
+    "Devanagari": 152,
+    "Mixed": 61
+  },
+  "provenance_distribution": {
+    "internally_authored": 945,
+    "public_curated": 170,
+    "synthetic_diverse": 85
+  },
+  "total_attack_families": 52
+}

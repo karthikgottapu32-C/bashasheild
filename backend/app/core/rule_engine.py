@@ -232,7 +232,8 @@ RULES_CATALOG: List[RuleDefinition] = [
             r"\bventane\s+(ee\s+link\s+open\s+chesi|dabulu\s+pampi)\b",
             r"\b(electricity|current|power)\s+.*?\b(disconnect|cut\s*chestharu|aagakunda)\b.*?\b(upi|pay|pampandi|kattandi)\b",
             r"\b(mee\s+)?(bank\s+)?(account|khata)\s+(block|freeze)\s+(avuthundi|ayyindi|avutundi)\b.*?\b(otp|atm\s*pin|pin|pan\s*card|upi)\b",
-            r"\b(kyc\s*update|aadhaar\s*link)\s+cheyyakapothe\s+(account|service)\s+(block|aagipothundi)\b"
+            r"\b(kyc\s*update|aadhaar\s*link)\s+cheyyakapothe\s+(account|service)\s+(block|aagipothundi)\b",
+            r"\b(cbi|police|cyber\s*crime|narcotics|drug\s*parcel)\s+(notice|case)\b.*?\b(arrest|deposit|upi|transfer|dabulu|cheyandi)\b"
         ],
         description="Social engineering scam seeking UPI PIN for alleged refunds or prizes in Romanized Telugu.",
         language="Romanized Telugu"
@@ -249,9 +250,10 @@ RULES_CATALOG: List[RuleDefinition] = [
         severity="CRITICAL",
         weight=40.0,
         regex_patterns=[
-            r"\b(pichhle|pehle\s+ke|purane)\s+(saare|sabhi)?\s*(nirdesh|instructions|rules|aadesh)\s*(bhool\s*jao|ignore\s*karo|cancel\s*kardo|cancel\s*karke|chhod\s*do)\b",
+            r"\b(pichhle|pehle\s+ke|purane|security)\s+(saare|sabhi)?\s*(nirdesh|instructions|rules|aadesh|protocols)\s*(bhool\s*jao|ignore\s*karo|cancel\s*kardo|cancel\s*karke|chhod\s*do|radd\s*karke)\b",
             r"\buper\s+diye\s+gaye\s+rules\s+ko\s+nazarandaz\s+karo\b",
             r"\bab\s+se\s+tum\s+(sirf|keval)\s+meri\s+sunoge\b",
+            r"\bradd\s+karke\s+.*?\b(leak\s*karo|batao|print\s*karo)\b",
             r"\bpehle\s+kya\s+bola\s+woh\s+sab\s+bhul\s+ja\b"
         ],
         description="Instruction override targeting AI assistants using Romanized Hindi phonetics.",
@@ -296,10 +298,13 @@ RULES_CATALOG: List[RuleDefinition] = [
         severity="CRITICAL",
         weight=40.0,
         regex_patterns=[
-            r"\b(paise|refund|cashback|prize)\s*(pane|lene|transfer)\s*ke\s*liye\s*(apna\s*)?(upi\s*pin|pin)\s*(dalo|enter\s*karo|bhejo)\b",
+            r"\b(paise|refund|cashback|prize)\s*(pane|lene|transfer)\s*ke\s*liye\s*(apna\s*)?(upi\s*pin|pin)\s*(dalo|dalein|enter\s*karo|bhejo|submit\s*karein)\b",
+            r"\b(upi\s*pin|mpin|pin)\s*(dalo|dalein|enter\s*karo|submit\s*karein|bhejo)\b",
+            r"\bqr\s*code\s*(ko\s*)?scan\s*karke\s*.*?\b(upi\s*pin|mpin|pin|submit)\b",
             r"\bupi\s*pin\s*(daal\s*kar|enter\s*karke)\s*paise\s*receive\s*karein\b",
             r"\baccount\s*block\s*hone\s*se\s*bachane\s*ke\s*liye\s*turant\s*pay\s*karein\b",
-            r"\b(bijli|light|electricity)\s+.*?\b(disconnect|cut\s*ho\s*jayegi|kaat\s*di)\b.*?\b(upi|payment|send|bhejo|jama)\b",
+            r"\b(bijli|light|electricity)\s+.*?\b(disconnect|cut\s*ho\s*jayeg[ai]|kaat\s*d[ie]|kaat\s*diya)\b.*?\b(upi|payment|send|bhejo|jama)\b",
+            r"\b(?:parcel|courier)\s+(?:deliver\s*karane|lene)\s*ke\s*liye\s*.*?\b(?:upi|pay|bhejo|jama)\b",
             r"\b(bank\s+khata|account)\s+(freeze|block)\s+ho\s+gaya\b.*?\b(otp|mpin|pin|update)\b",
             r"\b(kyc\s*update|pan\s*card\s*link)\s+nahi\s+kiya\s+toh\s+(account|sim)\s+band\b"
         ],
@@ -372,6 +377,10 @@ RULES_CATALOG: List[RuleDefinition] = [
             r"\byour\s+(bank\s+)?account\s+(is|has\s+been)\s+(blocked|suspended|frozen)\b",
             r"\byour\s+account\s+will\s+be\s+suspended\s+within\s+\d+\s+hours\b",
             r"\bclick\s+here\s+to\s+(claim|claim\s+reward|verify\s+identity)\s*:\s*https?://\S+\b",
+            r"\b(?:parcel|package|courier|shipment)\s+.*?\b(?:wrong\s+address|held|seized|customs|clearance|address\s+missing)\b.*?\b(?:pay|charge|click|confirm|fee)\b.*?(?:https?://\S+|upi|rs\.?\s*\d+)\b",
+            r"\b(?:india\s*post|fedex|blue\s*dart|dhl)\s+(?:courier|delivery|notice|alert)\b.*?\b(?:pay|charge|click|fee|upi)\b",
+            r"\b(?:whatsapp\s*pink|free\s*recharge\s*app|hacked\s*apk)\b.*?\b(?:download\s*apk|click\s*link|http://|https://)\b",
+            r"https?://[a-zA-Z0-9.-]+\.(?:top|xyz|click|work|vip|gq|cf|ml|tk|fit|download|site)/\S*",
             r"\bshare\s+your\s+(otp|one\s+time\s+password|cvv)\s+to\s+(cancel|confirm)\b",
             r"\b(send|enter|share)\s+(your\s+)?(16-digit|debit\s*card|credit\s*card|card\s*number).*?(cvv|otp|pin)\b",
             r"\b(sim\s*card|mobile\s*number)\s+(will\s+be\s+)?(deactivated|blocked)\b.*?\b(pay|fee|upi|otp)\b",
@@ -388,12 +397,24 @@ RULES_CATALOG: List[RuleDefinition] = [
         severity="CRITICAL",
         weight=40.0,
         regex_patterns=[
-            r"\benter\s+(your\s+)?(upi\s+pin|mpin|atm\s+pin)\s+to\s+(receive|claim|collect|refund|unblock|verify)\b",
+            r"\benter\s+(your\s+)?(upi\s+pin|mpin|atm\s+pin)\s+to\s+(receive|claim|collect|refund|unblock|verify|transfer)\b",
             r"\benter\s+(your\s+)?(upi\s+pin|mpin|atm\s+pin)\s+(immediately|now)\b",
             r"\breceive\s+rs\.?\s*\d+\s+by\s+entering\s+your\s+pin\b",
+            r"\b(cashback|reward).*?\b(click\s+link|enter\s+mpin|enter\s+pin)\b.*?\b(wallet|transfer|receive)\b",
             r"\bupi\s+cashback\s+credited\s*:\s*enter\s+pin\s+now\b",
-            r"\b(electricity|power|water|gas|sim\s*card|png|lpg|meter)\s+(will\s+be\s+)?(disconnected|blocked|suspended|cut\s*off)\b.*?\b(pay|upi|transfer)\b",
-            r"\b(pay|upi\s+transfer)\s+(rs\.?\s*\d+|\d+\s*rupees?).*?\b(to\s+avoid\s+disconnection|immediately\s+via\s+upi)\b",
+            r"\b(electricity|power|water|gas|sim\s*cards?|png|lpg|meter)\s+(?:(?:supply|connection|service)\s+)?(?:will\s+be\s+)?(?:disconnected|blocked|suspended|cut\s*off|deactivated)\b.*?\b(pay|upi|transfer|call|officer)\b",
+            r"\b(?:meter|power|water|telecom|sim)\s+disconnection\b.*?\b(pay|upi|transfer|bill)\b",
+            r"\b(pay|upi\s+transfer)\s+(rs\.?\s*\d+|\d+\s*rupees?).*?\b(to\s+avoid\s+disconnection|immediately\s+via\s+upi|prevent\s+power\s+cutoff|disruption)\b",
+            r"\b(?:bescom|msedcl|dhbvn|pspcl|water\s*board)\b.*?\b(?:disconnected|cut\s*off|disconnection|blocked)\b.*?\b(?:upi|pay|clear\s+pending|penalty)\b",
+            r"\b(clear\s+pending\s+bill|avoid\s+disconnection\s+penalty)\b.*?\b(via\s+upi|upi|pay)\b",
+            r"\b(?:personal\s*loan|pre-approved|without\s+cibil|cibil\s*check)\b.*?\b(?:processing\s*fee|registration\s*fee|advance\s*fee)\b.*?\b(?:via\s+upi|pay|transfer|disburse)\b",
+            r"\b(?:receive\s+(?:the\s+)?payment|claim\s+payment).*?\b(?:enter\s+(?:your\s+)?(?:\d+-digit\s+)?(?:upi\s*mpin|mpin|upi\s*pin|pin))\b",
+            r"\b(?:trai|telecom|sim\s*cards?)\s+.*?\b(?:deactivated|disconnected|blocked)\b.*?\b(?:pay|verification\s*fee|upi)\b",
+            r"\b(?:5g\s*upgrade|sim\s*upgrade|sim\s*swap)\b.*?\b(?:send|share).*?\b(?:otp|sim\s*number)\b.*?\b(?:deactivation|block)\b",
+            r"\b(?:customs|cargo\s*terminal|clearance\s*officer|seized\s+at)\b.*?\b(?:pay|clearance\s*tax|release\s*delivery|upi)\b",
+            r"\b(?:part-time\s*job|earn\s+rs\.?\s*\d+.*?(?:daily|home)|liking\s+(?:youtube|instagram)\s+videos)\b.*?\b(?:deposit|security\s*fee|registration\s*fee|pay|via\s+upi)\b",
+            r"\b(?:gift\s*voucher|shopping\s*voucher)\b.*?\b(?:pay|registration\s*charge|activate\s*voucher|via\s+upi)\b",
+            r"\b(?:reward\s*points\s*expire|redeem\s+(?:for\s+cash|reward\s*points))\b.*?\b(?:cvv|otp|mpin|pin)\b",
             r"\b(lottery|lucky\s*draw|cash\s*prize|kbc).*?\b(pay|upi|processing\s*fee|registration\s*fee)\b"
         ],
         description="Deceptive financial trap claiming UPI PIN is required to receive money.",
@@ -474,8 +495,9 @@ RULES_CATALOG: List[RuleDefinition] = [
         weight=45.0,
         regex_patterns=[
             r"\b(call_tool|execute_command|execute_bash|execute_script|invoke_function|subprocess\.run|os\.system|eval\(|exec\()\b",
-            r"\b(invoke|execute|call|run|use)\s+(the\s+)?(function|tool|command|bash|shell|terminal|powershell|sql|file_read|execute_sql)\b",
+            r"\b(invoke|execute|call|run|use)\s+(?:[a-z0-9_-]+\s+){0,3}(?:function|tool|command|bash|shell|terminal|powershell|sql|file_read|execute_sql|script)\b",
             r"\b(execute|run)\s+(the\s+)?(following\s+)?(shell|terminal|bash|powershell|sql)\s+(command|script|query)\b",
+            r"\b(reverse\s*shell|bind\s*shell|import\s+socket\s+and\s+open|nc\s+-e|bash\s+-i)\b",
             r"\b(cat|access|read)\s+(/etc/shadow|/root/\.ssh/id_rsa|/\.env)\b",
             r"\b(tool\s*call\s*karo|command\s*execute\s*cheyandi|terminal\s*lo\s*run\s*cheyyi)\b",
             r"<\s*script\s*>.*?<\s*/\s*script\s*>",
@@ -650,12 +672,43 @@ def is_inside_quotes(text: str, start: int, end: int) -> bool:
 
     return sq_open or dq_open or curly_open or single_curly_open or fence_open
 
+def is_isolated_quote(text: str) -> bool:
+    """
+    Checks if the entire input text is strictly wrapped in single or double quotes,
+    representing an isolated excerpt or quoted snippet without surrounding commands.
+    """
+    s = text.strip()
+    if len(s) >= 4:
+        if (s.startswith("'") and s.endswith("'")) or (s.startswith('"') and s.endswith('"')):
+            return True
+        if (s.startswith("“") and s.endswith("”")) or (s.startswith("‘") and s.endswith("’")):
+            return True
+    return False
+
+def is_truncated_or_low_context(text: str) -> bool:
+    """
+    Checks if the text is an incomplete fragment (ending with ellipsis) or an
+    extremely short, ambiguous keyword search (<= 3 words without full predicate).
+    """
+    s = text.strip()
+    if s.endswith("...") or s.endswith("…") or s.endswith("and..."):
+        return True
+    words = s.split()
+    if len(words) <= 3 and len(s) <= 24:
+        if not any(c in s for c in ".!?;\n:"):
+            return True
+    return False
+
 QUOTED_DISCOURSE_PATTERN = re.compile(
     r'\b(?:incident\s+report(?:\s+notes?)?|research\s+paper|academic\s+(?:paper|discussion|analysis|study|research)|'
     r'cybersecurity\s+paper|paper\s+on\s+llm\s+security|security\s+analysis|audit\s+log|log\s+note|'
     r'author\s+states|attacker\s+sent|captured\s+in\s+log|payload\s+example|quarantined|'
     r'lecture(?:\s+on)?|class(?:\s+on)?|software\s+review|tester\s+evaluated|case\s+study|'
-    r'presentation|whitepaper|education\s+on|log\s+lo|audit\s+me|guardrail\s+ne|paper\s+review|security\s+audit)\b',
+    r'presentation|whitepaper|education\s+on|log\s+lo|audit\s+me|guardrail\s+ne|paper\s+review|security\s+audit|'
+    r'is\s+this\s+(?:phishing|an?\s+attack|safe|fraud|legit|legitimate|malicious|a\s+scam)|'
+    r'someone\s+sent\s+me|received\s+a\s+message|please\s+evaluate\s+if|check\s+if\s+this\s+(?:is|message|string)|'
+    r'kya\s+yeh\s+(?:fraud|scam|sahi)\s+hai|idi\s+(?:scam|fraud|phishing)\s+aa|kya\s+prabhav\s+padta\s+hai|'
+    r'em\s+avuthundi|kya\s+asar\s+hoga)\b',
     re.IGNORECASE
 )
 

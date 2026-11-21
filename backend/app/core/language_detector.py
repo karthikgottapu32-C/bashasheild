@@ -15,12 +15,19 @@ ROMANIZED_TELUGU_KEYWORDS = {
     "sare", "ayithe", "chesuko", "chepinchuko", "thondaraga", "ventane", "kavali", "vaddu",
     "ani", "ela", "ekkada", "evaru", "enduku", "emiti", "entha", "inkoti", "cheppina",
     "nirdeshanaalu", "suchanalu", "aadhesalu", "podduna", "raatri", "dabbu", "dabbulu",
-    "katteyi", "kattandi", "theesuko", "theeyi", "vadilayi"
+    "katteyi", "kattandi", "theesuko", "theeyi", "vadilayi", "lo", "mariyu", "chala",
+    "bagundi", "bagundhi", "anni", "ayina", "aina", "ninna", "eeroju", "repu", "chupincharu",
+    "panta", "aakulu", "mandulu", "vadali", "vadandi", "unna", "unnayi", "unnaru", "unnadi",
+    "untayi", "cheyadaniki", "cheyyadaniki", "gurinchi", "kante", "isthaya", "isthara",
+    "saripothunda", "saripotundha", "enni", "sarlu", "kooda", "malli", "evarina", "edo",
+    "oka", "rendu", "moodu", "kaavali", "ithe", "endukante", "velli", "vachi", "ravadaniki",
+    "thelusukovalante", "cheyyocha", "cheyocha", "pettali", "teesukovali", "avasarama",
+    "nerchukovadam", "theesukovali", "rogam", "nivaranaku"
 }
 
 # Characteristic Hindi Romanized vocabulary and morphological markers
 ROMANIZED_HINDI_KEYWORDS = {
-    "karo", "kijiye", "kijiye ga", "karna", "karoge", "kar sakti", "kar sakte",
+    "karo", "kijiye", "kijiye ga", "karna", "karoge", "kar sakti", "kar sakte", "karein",
     "bhejo", "bhejiye", "bhejna", "bhool", "bhoolo", "jao", "dikhaye", "dikhao",
     "batao", "bataye", "chahiye", "nahi", "nahin", "mat", "hoga", "hogi", "honge",
     "apna", "apne", "apni", "mera", "meri", "mere", "tumhara", "tumhari", "aapka", "aapki",
@@ -28,7 +35,9 @@ ROMANIZED_HINDI_KEYWORDS = {
     "paise", "rupaye", "nirdesh", "soochana", "aadesh", "pichhle", "pichhla", "pichhli",
     "dhyan", "rakho", "dekh", "dekho", "dekhiye", "kaam", "band", "shuru", "khatam",
     "bina", "saath", "pehle", "baad", "mein", "par", "se", "ko", "hai", "hain", "tha", "the",
-    "karo mat", "chori", "khata", "bhejo mat"
+    "karo mat", "chori", "khata", "bhejo mat", "radd", "karke", "dalein", "dalo", "gaya",
+    "gaye", "gayi", "wali", "wale", "wala", "diya", "liya", "baat", "sahi", "pata", "bata",
+    "rahe", "raha", "rahi", "karte", "karti", "karta", "kaise", "kyun", "kahan", "yahan", "wahan"
 }
 
 COMMON_ENGLISH_WORDS = {
@@ -168,8 +177,8 @@ def detect_language(text: str, language_hint: str = "auto") -> Dict[str, Any]:
     en_hits = tokens.intersection(COMMON_ENGLISH_WORDS)
 
     # Phonetic and suffix heuristics for Telugu & Hindi
-    te_suffix_score = len(re.findall(r'\b[a-z]+(andi|cheyyi|chey|chudandi|motham|undu|leka|galara|kundaa)\b', lower_text))
-    hi_suffix_score = len(re.findall(r'\b[a-z]+(kijiye|karo|bhejo|wala|wali|wale|chahiye|gaya|gayi|diya|dega)\b', lower_text))
+    te_suffix_score = len(re.findall(r'\b[a-z]+(andi|cheyyi|chey|chudandi|motham|undu|leka|galara|kundaa|daniki|pothunda|potundha|isthaya|untayi|unnayi|bagundi|vadali|panta)\b', lower_text))
+    hi_suffix_score = len(re.findall(r'\b[a-z]+(kijiye|karo|bhejo|wala|wali|wale|chahiye|gaya|gayi|diya|dega|karke|karein|dalein)\b', lower_text))
 
     te_total = len(te_hits) * 2 + te_suffix_score
     hi_total = len(hi_hits) * 2 + hi_suffix_score

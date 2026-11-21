@@ -10,7 +10,13 @@ from app.models import (
     HighlightedSpan
 )
 from app.core.language_detector import detect_language
-from app.core.rule_engine import evaluate_rules, QUOTED_DISCOURSE_PATTERN, SAFE_TRANSLATION_PATTERN
+from app.core.rule_engine import (
+    evaluate_rules,
+    QUOTED_DISCOURSE_PATTERN,
+    SAFE_TRANSLATION_PATTERN,
+    is_isolated_quote,
+    is_truncated_or_low_context
+)
 from app.core.model_service import model_service
 from app.core.explainer import generate_explanation_and_actions
 from app.database import save_scan
@@ -42,43 +48,59 @@ def analyze_text(request: AnalyzeRequest) -> AnalyzeResponse:
 
     cat_names = [c.value if hasattr(c, "value") else str(c) for c in categories]
 
-    if rule_findings:
-        # Case A: Deterministic rules matched -> MALICIOUS
-        classification = "MALICIOUS"
-        if has_critical_rule:
-            combined_score = min(100.0, max(85.0, rule_risk_score))
-            risk_level = RiskLevel.CRITICAL
-        elif has_high_rule:
-            combined_score = min(84.0, max(60.0, rule_risk_score))
-            risk_level = RiskLevel.HIGH
-        elif has_medium_rule:
-            combined_score = min(59.0, max(35.0, rule_risk_score))
-            risk_level = RiskLevel.MEDIUM
-        else:
-            combined_score = min(34.0, max(20.0, rule_risk_score))
-            risk_level = RiskLevel.LOW
+    is_isolated = is_isolated_quote(text)
+    is_truncated = is_truncated_or_low_context(text)
+    is_quoted_or_academic = bool(QUOTED_DISCOURSE_PATTERN.search(text))
 
-        primary_threat = cat_names[0] if cat_names else ThreatCategory.PROMPT_INJECTION.value
-        confidence = 0.96 if (model_finding and model_finding.is_malicious) else 0.92
-        uncertainty = round(1.0 - confidence, 2)
+    if rule_findings:
+        # Check if matched payload is strictly an isolated quote, truncated fragment, or inquiry question
+        if is_isolated or is_truncated or is_quoted_or_academic:
+            classification = "UNCERTAIN"
+            combined_score = 40.0
+            risk_level = RiskLevel.UNCERTAIN
+            cat_names = [ThreatCategory.UNKNOWN.value]
+            primary_threat = "UNCERTAIN / AMBIGUOUS"
+            target_type = TargetType.NONE
+            confidence = 0.65
+            uncertainty = 0.35
+        else:
+            # Case A: Deterministic rules matched on executable context -> MALICIOUS
+            classification = "MALICIOUS"
+            if has_critical_rule:
+                combined_score = min(100.0, max(85.0, rule_risk_score))
+                risk_level = RiskLevel.CRITICAL
+            elif has_high_rule:
+                combined_score = min(84.0, max(60.0, rule_risk_score))
+                risk_level = RiskLevel.HIGH
+            elif has_medium_rule:
+                combined_score = min(59.0, max(35.0, rule_risk_score))
+                risk_level = RiskLevel.MEDIUM
+            else:
+                combined_score = min(34.0, max(20.0, rule_risk_score))
+                risk_level = RiskLevel.LOW
+
+            primary_threat = cat_names[0] if cat_names else ThreatCategory.PROMPT_INJECTION.value
+            confidence = 0.96 if (model_finding and model_finding.is_malicious) else 0.92
+            uncertainty = round(1.0 - confidence, 2)
 
     else:
         # Case B: No rules triggered. Evaluate ML Model with Calibrated Confidence & OOD Checks
         if model_finding and model_finding.is_malicious:
             # Check if text is academic/quoted discourse or safe translation inquiry without payload
-            is_quoted_or_academic = bool(QUOTED_DISCOURSE_PATTERN.search(text))
             is_safe_translation_without_secrets = bool(
                 SAFE_TRANSLATION_PATTERN.search(text) and
                 not any(w in text.lower() for w in ["system prompt", "initial prompt", "developer instructions", "secret", "password", "token"])
             )
 
-            # Check if model prediction is decisive (not ambiguous, high confidence margin, not OOD)
+            # Check if model prediction is decisive (not ambiguous, high confidence margin, not OOD, not isolated/truncated)
             is_decisive = (
                 model_finding.probability >= 0.70 and
                 getattr(model_finding, "margin", 1.0) >= 0.25 and
                 not getattr(model_finding, "is_ambiguous", False) and
                 not getattr(model_finding, "is_ood", False) and
                 not is_quoted_or_academic and
+                not is_isolated and
+                not is_truncated and
                 not is_safe_translation_without_secrets
             )
             if is_decisive:

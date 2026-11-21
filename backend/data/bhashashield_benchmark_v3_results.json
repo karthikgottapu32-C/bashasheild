@@ -1,0 +1,330 @@
+{
+  "evaluation_metadata": {
+    "benchmark_version": "v3.0.0",
+    "evaluated_samples": 1200,
+    "timestamp": "2026-11-21T12:46:34.465692Z"
+  },
+  "confusion_matrix": {
+    "MALICIOUS": {
+      "MALICIOUS": 401,
+      "BENIGN": 2,
+      "UNCERTAIN": 69
+    },
+    "BENIGN": {
+      "MALICIOUS": 0,
+      "BENIGN": 509,
+      "UNCERTAIN": 6
+    },
+    "UNCERTAIN": {
+      "MALICIOUS": 18,
+      "BENIGN": 106,
+      "UNCERTAIN": 89
+    }
+  },
+  "metrics": {
+    "malicious_recall": 0.8496,
+    "malicious_recall_fraction": "401/472",
+    "malicious_escape_rate": 0.0042,
+    "malicious_escape_fraction": "2/472",
+    "malicious_abstention_rate": 0.1462,
+    "malicious_abstention_fraction": "69/472",
+    "benign_clean_pass_rate": 0.9883,
+    "benign_clean_pass_fraction": "509/515",
+    "benign_false_positive_rate": 0.0,
+    "benign_false_positive_fraction": "0/515",
+    "benign_abstention_rate": 0.0117,
+    "benign_abstention_fraction": "6/515",
+    "precision_malicious": 0.957,
+    "precision_malicious_fraction": "401/419",
+    "precision_benign": 0.825,
+    "precision_benign_fraction": "509/617",
+    "decision_coverage": 0.8633,
+    "decision_coverage_fraction": "1036/1200",
+    "selective_risk_on_covered": 0.1216,
+    "expected_calibration_error": 0.0827,
+    "brier_score": 0.0127
+  },
+  "calibration_bins": [
+    {
+      "bin_range": "0.4-0.6",
+      "sample_count": 1,
+      "avg_confidence": 0.56,
+      "accuracy": 1.0,
+      "calibration_gap": 0.44
+    },
+    {
+      "bin_range": "0.6-0.8",
+      "sample_count": 57,
+      "avg_confidence": 0.7411,
+      "accuracy": 0.9825,
+      "calibration_gap": 0.2414
+    },
+    {
+      "bin_range": "0.8-1.0",
+      "sample_count": 854,
+      "avg_confidence": 0.9272,
+      "accuracy": 0.9988,
+      "calibration_gap": 0.0716
+    }
+  ],
+  "per_language": {
+    "en": {
+      "total": 490,
+      "actual_malicious": 221,
+      "actual_benign": 151,
+      "actual_uncertain": 118,
+      "predicted_malicious": 187,
+      "predicted_benign": 226,
+      "predicted_uncertain": 77,
+      "matrix": {
+        "MALICIOUS": {
+          "MALICIOUS": 182,
+          "BENIGN": 2,
+          "UNCERTAIN": 37
+        },
+        "BENIGN": {
+          "MALICIOUS": 0,
+          "BENIGN": 150,
+          "UNCERTAIN": 1
+        },
+        "UNCERTAIN": {
+          "MALICIOUS": 5,
+          "BENIGN": 74,
+          "UNCERTAIN": 39
+        }
+      }
+    },
+    "te": {
+      "total": 153,
+      "actual_malicious": 55,
+      "actual_benign": 72,
+      "actual_uncertain": 26,
+      "predicted_malicious": 52,
+      "predicted_benign": 80,
+      "predicted_uncertain": 21,
+      "matrix": {
+        "MALICIOUS": {
+          "MALICIOUS": 49,
+          "BENIGN": 0,
+          "UNCERTAIN": 6
+        },
+        "BENIGN": {
+          "MALICIOUS": 0,
+          "BENIGN": 71,
+          "UNCERTAIN": 1
+        },
+        "UNCERTAIN": {
+          "MALICIOUS": 3,
+          "BENIGN": 9,
+          "UNCERTAIN": 14
+        }
+      }
+    },
+    "hi": {
+      "total": 152,
+      "actual_malicious": 54,
+      "actual_benign": 72,
+      "actual_uncertain": 26,
+      "predicted_malicious": 43,
+      "predicted_benign": 78,
+      "predicted_uncertain": 31,
+      "matrix": {
+        "MALICIOUS": {
+          "MALICIOUS": 40,
+          "BENIGN": 0,
+          "UNCERTAIN": 14
+        },
+        "BENIGN": {
+          "MALICIOUS": 0,
+          "BENIGN": 71,
+          "UNCERTAIN": 1
+        },
+        "UNCERTAIN": {
+          "MALICIOUS": 3,
+          "BENIGN": 7,
+          "UNCERTAIN": 16
+        }
+      }
+    },
+    "te-Latn": {
+      "total": 148,
+      "actual_malicious": 53,
+      "actual_benign": 77,
+      "actual_uncertain": 18,
+      "predicted_malicious": 52,
+      "predicted_benign": 83,
+      "predicted_uncertain": 13,
+      "matrix": {
+        "MALICIOUS": {
+          "MALICIOUS": 48,
+          "BENIGN": 0,
+          "UNCERTAIN": 5
+        },
+        "BENIGN": {
+          "MALICIOUS": 0,
+          "BENIGN": 77,
+          "UNCERTAIN": 0
+        },
+        "UNCERTAIN": {
+          "MALICIOUS": 4,
+          "BENIGN": 6,
+          "UNCERTAIN": 8
+        }
+      }
+    },
+    "hi-Latn": {
+      "total": 147,
+      "actual_malicious": 52,
+      "actual_benign": 77,
+      "actual_uncertain": 18,
+      "predicted_malicious": 49,
+      "predicted_benign": 83,
+      "predicted_uncertain": 15,
+      "matrix": {
+        "MALICIOUS": {
+          "MALICIOUS": 47,
+          "BENIGN": 0,
+          "UNCERTAIN": 5
+        },
+        "BENIGN": {
+          "MALICIOUS": 0,
+          "BENIGN": 76,
+          "UNCERTAIN": 1
+        },
+        "UNCERTAIN": {
+          "MALICIOUS": 2,
+          "BENIGN": 7,
+          "UNCERTAIN": 9
+        }
+      }
+    },
+    "mixed": {
+      "total": 74,
+      "actual_malicious": 27,
+      "actual_benign": 40,
+      "actual_uncertain": 7,
+      "predicted_malicious": 27,
+      "predicted_benign": 41,
+      "predicted_uncertain": 6,
+      "matrix": {
+        "MALICIOUS": {
+          "MALICIOUS": 26,
+          "BENIGN": 0,
+          "UNCERTAIN": 1
+        },
+        "BENIGN": {
+          "MALICIOUS": 0,
+          "BENIGN": 38,
+          "UNCERTAIN": 2
+        },
+        "UNCERTAIN": {
+          "MALICIOUS": 1,
+          "BENIGN": 3,
+          "UNCERTAIN": 3
+        }
+      }
+    },
+    "te-en": {
+      "total": 18,
+      "actual_malicious": 5,
+      "actual_benign": 13,
+      "actual_uncertain": 0,
+      "predicted_malicious": 4,
+      "predicted_benign": 13,
+      "predicted_uncertain": 1,
+      "matrix": {
+        "MALICIOUS": {
+          "MALICIOUS": 4,
+          "BENIGN": 0,
+          "UNCERTAIN": 1
+        },
+        "BENIGN": {
+          "MALICIOUS": 0,
+          "BENIGN": 13,
+          "UNCERTAIN": 0
+        },
+        "UNCERTAIN": {
+          "MALICIOUS": 0,
+          "BENIGN": 0,
+          "UNCERTAIN": 0
+        }
+      }
+    },
+    "hi-en": {
+      "total": 18,
+      "actual_malicious": 5,
+      "actual_benign": 13,
+      "actual_uncertain": 0,
+      "predicted_malicious": 5,
+      "predicted_benign": 13,
+      "predicted_uncertain": 0,
+      "matrix": {
+        "MALICIOUS": {
+          "MALICIOUS": 5,
+          "BENIGN": 0,
+          "UNCERTAIN": 0
+        },
+        "BENIGN": {
+          "MALICIOUS": 0,
+          "BENIGN": 13,
+          "UNCERTAIN": 0
+        },
+        "UNCERTAIN": {
+          "MALICIOUS": 0,
+          "BENIGN": 0,
+          "UNCERTAIN": 0
+        }
+      }
+    }
+  },
+  "per_category": {
+    "BENIGN": {
+      "total": 515,
+      "predicted_malicious": 0,
+      "predicted_benign": 509,
+      "predicted_uncertain": 6
+    },
+    "PROMPT_INJECTION": {
+      "total": 251,
+      "predicted_malicious": 219,
+      "predicted_benign": 0,
+      "predicted_uncertain": 32
+    },
+    "DATA_EXFILTRATION": {
+      "total": 16,
+      "predicted_malicious": 12,
+      "predicted_benign": 0,
+      "predicted_uncertain": 4
+    },
+    "JAILBREAK": {
+      "total": 23,
+      "predicted_malicious": 16,
+      "predicted_benign": 0,
+      "predicted_uncertain": 7
+    },
+    "MALICIOUS_CODE_INSTRUCTION": {
+      "total": 10,
+      "predicted_malicious": 10,
+      "predicted_benign": 0,
+      "predicted_uncertain": 0
+    },
+    "FINANCIAL_MANIPULATION": {
+      "total": 147,
+      "predicted_malicious": 129,
+      "predicted_benign": 1,
+      "predicted_uncertain": 17
+    },
+    "UNKNOWN": {
+      "total": 213,
+      "predicted_malicious": 18,
+      "predicted_benign": 106,
+      "predicted_uncertain": 89
+    },
+    "PHISHING": {
+      "total": 25,
+      "predicted_malicious": 15,
+      "predicted_benign": 1,
+      "predicted_uncertain": 9
+    }
+  }
+}
