@@ -10,7 +10,7 @@ from app.models import (
     HighlightedSpan
 )
 from app.core.language_detector import detect_language
-from app.core.rule_engine import evaluate_rules
+from app.core.rule_engine import evaluate_rules, QUOTED_DISCOURSE_PATTERN, SAFE_TRANSLATION_PATTERN
 from app.core.model_service import model_service
 from app.core.explainer import generate_explanation_and_actions
 from app.database import save_scan
@@ -65,12 +65,21 @@ def analyze_text(request: AnalyzeRequest) -> AnalyzeResponse:
     else:
         # Case B: No rules triggered. Evaluate ML Model with Calibrated Confidence & OOD Checks
         if model_finding and model_finding.is_malicious:
+            # Check if text is academic/quoted discourse or safe translation inquiry without payload
+            is_quoted_or_academic = bool(QUOTED_DISCOURSE_PATTERN.search(text))
+            is_safe_translation_without_secrets = bool(
+                SAFE_TRANSLATION_PATTERN.search(text) and
+                not any(w in text.lower() for w in ["system prompt", "initial prompt", "developer instructions", "secret", "password", "token"])
+            )
+
             # Check if model prediction is decisive (not ambiguous, high confidence margin, not OOD)
             is_decisive = (
                 model_finding.probability >= 0.70 and
                 getattr(model_finding, "margin", 1.0) >= 0.25 and
                 not getattr(model_finding, "is_ambiguous", False) and
-                not getattr(model_finding, "is_ood", False)
+                not getattr(model_finding, "is_ood", False) and
+                not is_quoted_or_academic and
+                not is_safe_translation_without_secrets
             )
             if is_decisive:
                 # Confirmed MALICIOUS
@@ -109,8 +118,8 @@ def analyze_text(request: AnalyzeRequest) -> AnalyzeResponse:
             is_confirmed_benign = (
                 model_finding is not None and
                 not model_finding.is_malicious and
-                model_finding.probability >= 0.70 and
-                getattr(model_finding, "margin", 1.0) >= 0.25 and
+                model_finding.probability >= 0.55 and
+                getattr(model_finding, "margin", 1.0) >= 0.20 and
                 not getattr(model_finding, "is_ambiguous", False) and
                 not getattr(model_finding, "is_ood", False) and
                 detected_language != "Undetermined" and

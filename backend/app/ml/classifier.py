@@ -86,7 +86,7 @@ class MultilingualSecurityClassifier:
             norm = 1.0
 
         is_ood = bool(norm < 0.06)
-        is_ambiguous = bool(margin < 0.25 or entropy > 0.70 or is_ood)
+        is_ambiguous = bool(margin < 0.20 or entropy > 0.70 or is_ood)
 
         return {
             "predicted_class": top_class,

@@ -74,8 +74,8 @@ RULES_CATALOG: List[RuleDefinition] = [
         severity="HIGH",
         weight=35.0,
         regex_patterns=[
-            r"(సిస్టమ్|రహస్య|అసలు)\s*(ప్రాంప్ట్‌ను|నిర్దేశాలను|సూచనలను|ప్రాంప్ట్)(.*?)?(చూపించు|ప్రింట్\s*చేయండి|బయటపెట్టు|చెప్పు|ప్రింట్)",
-            r"మీ\s*(అసలు\s+)?(సిస్టమ్\s*ప్రాంప్ట్|రహస్య|API\s*కీ|సీక్రెట్\s*కీ|పాస్‌వర్డ్|టోకెన్)(లను)?.*?(పంపండి|చూపండి|రాయండి|ప్రింట్)",
+            r"(సిస్టమ్|రహస్య|అసలు|ప్రాథమిక|ప్రారంభ)\s*(ప్రాంప్ట్‌ను|నిర్దేశాలను|సూచనలను|ప్రాంప్ట్)(.*?)?(చూపించు|ప్రింట్\s*చేయండి|బయటపెట్టు|చెప్పు|ప్రింట్|చూపించండి|అనువదించి)",
+            r"మీ\s*(అసలు\s+|ప్రాథమిక\s+)?(సిస్టమ్\s*ప్రాంప్ట్|రహస్య|API\s*కీ|సీక్రెట్\s*కీ|పాస్‌వర్డ్|టోకెన్|సూచనలను)(లను)?.*?(పంపండి|చూపండి|రాయండి|ప్రింట్|అనువదించి)",
             r"దాచిన\s+సూచనలను\s+బయటకు\s+చెప్పండి"
         ],
         description="Attempts to force the AI to leak internal system prompts, secret instructions, or credentials in Telugu script.",
@@ -90,7 +90,10 @@ RULES_CATALOG: List[RuleDefinition] = [
         weight=40.0,
         regex_patterns=[
             r"(యూపీఐ|UPI|ATM)\s*పిన్\s*(నమోదు|ఎంటర్|టైప్)\s*చేయండి",
-            r"(డబ్బులు|రీఫండ్|లాటరీ|క్యాష్‌బ్యాక్)\s*(రావడానికి|పొందడానికి)\s*(పిన్|PIN)\s*(కొట్టండి|చెప్పండి|నొక్కండి)",
+            r"(డబ్బులు|రీఫండ్|లాటరీ|క్యాష్‌బ్యాక్|బహుమతి)\s*(రావడానికి|పొందడానికి|తీసుకోవడానికి)\s*(పిన్|PIN)\s*(కొట్టండి|చెప్పండి|నొక్కండి|ఎంటర్)",
+            r"(కరెంట్|విద్యుత్|వాటర్|గ్యాస్)\s*బిల్లు.*?(నిలిపివేయబడుతుంది|కట్\s*చేయబడుతుంది|చెల్లించండి)",
+            r"(లాటరీ|బంపర్\s*డ్రా|నగదు\s*బహుమతి|కారు\s*గెలుచుకున్నారు).*?(UPI|పిన్|చెల్లించండి|రుసుము)",
+            r"(పాన్|KYC|ఆధార్|ఖాతా)\s*(నిలిపివేయబడింది|బ్లాక్|గడువు).*?(OTP|పిన్|అప్‌డేట్)",
             r"ఖాతా\s*(బ్లాక్|రద్దు)\s*కాకుండా\s*వెంటనే\s*చెల్లించండి"
         ],
         description="Deceptive financial instructions demanding UPI PIN for refunds or payments in Telugu script.",
@@ -155,8 +158,11 @@ RULES_CATALOG: List[RuleDefinition] = [
         severity="CRITICAL",
         weight=40.0,
         regex_patterns=[
-            r"(पैसे|रिफंड|पुरस्कार|लॉटरी)\s*(पाने|प्राप्त\s*करने)\s*के\s*लिए\s*(अपना\s*)?(UPI|यूपीआई)\s*पिन\s*(दर्ज|डालें|दालो|लिखो)",
-            r"(UPI|यूपीआई)\s*पिन\s*(दर्ज\s*करें|साझा\s*करें)",
+            r"(पैसे|रिफंड|पुरस्कार|लॉटरी|इनाम)\s*(पाने|प्राप्त\s*करने|लेने)\s*के\s*लिए\s*(अपना\s*)?(UPI|यूपीआई)\s*पिन\s*(दर्ज|डालें|दालो|लिखो)",
+            r"(UPI|यूपीआई)\s*पिन\s*(दर्ज\s*करें|साझा\s*करें|डालें)",
+            r"(बिजली|विद्युत|जल|गैस)\s*(काट\s*दी\s*जाएगी|बंद\s*कर\s*दिया\s*जाएगा|डिस्कनेक्ट|कट\s*जाएगी).*?(UPI|यूपीआई|भुगतान|भेजें)",
+            r"(केबीसी|लॉटरी|इनाम|डिजिटल\s*अरेस्ट|वारंट).*?(UPI|यूपीआई|पिन|फीस|भेजें)",
+            r"(पैन|केवाईसी|खाता|सिम)\s*(ब्लॉक|बंद|निलंबित).*?(ओटीपी|पिन|शुल्क|UPI)",
             r"आपका\s*खाता\s*(बंद|ब्लॉक)\s*होने\s*वाला\s*है,\s*तुरंत\s*पैसे\s*भेजें"
         ],
         description="Fraudulent instruction asking user to enter UPI PIN under false pretenses in Hindi script.",
@@ -221,9 +227,12 @@ RULES_CATALOG: List[RuleDefinition] = [
         severity="CRITICAL",
         weight=40.0,
         regex_patterns=[
-            r"\b(upi|atm)\s*pin\s*(enter\s*cheyandi|kottandi|nokkandi|ivvandi|type\s*cheyyi)\b",
-            r"\b(dabbu|refund|cashback|lottery)\s*(ravataniki|kosam)\s*(pin|upi\s*pin)\s*(enter|kottandi)\b",
-            r"\bventane\s+(ee\s+link\s+open\s+chesi|dabulu\s+pampi)\b"
+            r"\b(upi|atm)\s*pin\s*(enter\s*cheyandi|kottandi|nokkandi|ivvandi|type\s*cheyyi|pampandi|share\s*cheyandi|cheppandi)\b",
+            r"\b(dabbu|refund|cashback|lottery)\s*(ravataniki|kosam)\s*(pin|upi\s*pin)\s*(enter|kottandi|ivvandi)\b",
+            r"\bventane\s+(ee\s+link\s+open\s+chesi|dabulu\s+pampi)\b",
+            r"\b(electricity|current|power)\s+.*?\b(disconnect|cut\s*chestharu|aagakunda)\b.*?\b(upi|pay|pampandi|kattandi)\b",
+            r"\b(mee\s+)?(bank\s+)?(account|khata)\s+(block|freeze)\s+(avuthundi|ayyindi|avutundi)\b.*?\b(otp|atm\s*pin|pin|pan\s*card|upi)\b",
+            r"\b(kyc\s*update|aadhaar\s*link)\s+cheyyakapothe\s+(account|service)\s+(block|aagipothundi)\b"
         ],
         description="Social engineering scam seeking UPI PIN for alleged refunds or prizes in Romanized Telugu.",
         language="Romanized Telugu"
@@ -289,7 +298,10 @@ RULES_CATALOG: List[RuleDefinition] = [
         regex_patterns=[
             r"\b(paise|refund|cashback|prize)\s*(pane|lene|transfer)\s*ke\s*liye\s*(apna\s*)?(upi\s*pin|pin)\s*(dalo|enter\s*karo|bhejo)\b",
             r"\bupi\s*pin\s*(daal\s*kar|enter\s*karke)\s*paise\s*receive\s*karein\b",
-            r"\baccount\s*block\s*hone\s*se\s*bachane\s*ke\s*liye\s*turant\s*pay\s*karein\b"
+            r"\baccount\s*block\s*hone\s*se\s*bachane\s*ke\s*liye\s*turant\s*pay\s*karein\b",
+            r"\b(bijli|light|electricity)\s+.*?\b(disconnect|cut\s*ho\s*jayegi|kaat\s*di)\b.*?\b(upi|payment|send|bhejo|jama)\b",
+            r"\b(bank\s+khata|account)\s+(freeze|block)\s+ho\s+gaya\b.*?\b(otp|mpin|pin|update)\b",
+            r"\b(kyc\s*update|pan\s*card\s*link)\s+nahi\s+kiya\s+toh\s+(account|sim)\s+band\b"
         ],
         description="Phishing and deceptive UPI PIN solicitation in Romanized Hindi.",
         language="Romanized Hindi"
@@ -340,7 +352,8 @@ RULES_CATALOG: List[RuleDefinition] = [
         severity="HIGH",
         weight=35.0,
         regex_patterns=[
-            r"\b(print|output|display|reveal|leak|repeat|show|translate)\s+(your\s+)?(complete\s+|entire\s+|full\s+|secret\s+|initial\s+|developer\s+)*(system\s*prompt|initial\s*prompt|system\s*instructions|secret\s*instructions|developer\s*instructions)\b",
+            r"\b(print|output|display|reveal|leak|repeat|show|translate|quote)\s+(your\s+)?(complete\s+|entire\s+|full\s+|secret\s+|initial\s+|developer\s+|confidential\s+|core\s+|operating\s+)*(system\s*prompt|initial\s*prompt|system\s*instructions|secret\s*instructions|developer\s*instructions|confidential\s*instructions|operating\s*instructions)\b",
+            r"\b(what\s+(were|are)\s+the\s+(exact\s+)?(words|instructions|system\s*prompt)|(exact\s+(text|words)|copy|verbatim\s+copy)\s+of\s+(the\s+)?(confidential|secret|hidden|developer|system)\s+(instructions|prompt))\b",
             r"\b(send|exfiltrate|transmit|post)\s+(the\s+|all\s+)?(conversation\s+history|chat\s+history|conversations|user\s+data|secrets|api\s+keys?)(.*?)to\s+https?://\S+\b",
             r"\boutput\s+the\s+above\s+text\s+as\s+a\s+base64\s+encoded\s+string\b"
         ],
@@ -359,7 +372,10 @@ RULES_CATALOG: List[RuleDefinition] = [
             r"\byour\s+(bank\s+)?account\s+(is|has\s+been)\s+(blocked|suspended|frozen)\b",
             r"\byour\s+account\s+will\s+be\s+suspended\s+within\s+\d+\s+hours\b",
             r"\bclick\s+here\s+to\s+(claim|claim\s+reward|verify\s+identity)\s*:\s*https?://\S+\b",
-            r"\bshare\s+your\s+(otp|one\s+time\s+password|cvv)\s+to\s+(cancel|confirm)\b"
+            r"\bshare\s+your\s+(otp|one\s+time\s+password|cvv)\s+to\s+(cancel|confirm)\b",
+            r"\b(send|enter|share)\s+(your\s+)?(16-digit|debit\s*card|credit\s*card|card\s*number).*?(cvv|otp|pin)\b",
+            r"\b(sim\s*card|mobile\s*number)\s+(will\s+be\s+)?(deactivated|blocked)\b.*?\b(pay|fee|upi|otp)\b",
+            r"\b(digital\s*arrest|arrest\s*warrant|narcotics\s*notice).*?\b(upi|bail|fine|deposit)\b"
         ],
         description="Phishing attack soliciting account credentials or OTP verification under urgency.",
         language="English"
@@ -376,8 +392,9 @@ RULES_CATALOG: List[RuleDefinition] = [
             r"\benter\s+(your\s+)?(upi\s+pin|mpin|atm\s+pin)\s+(immediately|now)\b",
             r"\breceive\s+rs\.?\s*\d+\s+by\s+entering\s+your\s+pin\b",
             r"\bupi\s+cashback\s+credited\s*:\s*enter\s+pin\s+now\b",
-            r"\b(electricity|power|water|gas|sim\s*card)\s+(will\s+be\s+)?(disconnected|blocked|suspended)\b.*?\b(pay|upi|transfer)\b",
-            r"\b(pay|upi\s+transfer)\s+(rs\.?\s*\d+|\d+\s*rupees?).*?\b(to\s+avoid\s+disconnection|immediately\s+via\s+upi)\b"
+            r"\b(electricity|power|water|gas|sim\s*card|png|lpg|meter)\s+(will\s+be\s+)?(disconnected|blocked|suspended|cut\s*off)\b.*?\b(pay|upi|transfer)\b",
+            r"\b(pay|upi\s+transfer)\s+(rs\.?\s*\d+|\d+\s*rupees?).*?\b(to\s+avoid\s+disconnection|immediately\s+via\s+upi)\b",
+            r"\b(lottery|lucky\s*draw|cash\s*prize|kbc).*?\b(pay|upi|processing\s*fee|registration\s*fee)\b"
         ],
         description="Deceptive financial trap claiming UPI PIN is required to receive money.",
         language="English"
@@ -457,8 +474,9 @@ RULES_CATALOG: List[RuleDefinition] = [
         weight=45.0,
         regex_patterns=[
             r"\b(call_tool|execute_command|execute_bash|execute_script|invoke_function|subprocess\.run|os\.system|eval\(|exec\()\b",
-            r"\b(invoke|execute|call|run)\s+(the\s+)?(function|tool|command|bash|shell|terminal|powershell|sql)\b",
+            r"\b(invoke|execute|call|run|use)\s+(the\s+)?(function|tool|command|bash|shell|terminal|powershell|sql|file_read|execute_sql)\b",
             r"\b(execute|run)\s+(the\s+)?(following\s+)?(shell|terminal|bash|powershell|sql)\s+(command|script|query)\b",
+            r"\b(cat|access|read)\s+(/etc/shadow|/root/\.ssh/id_rsa|/\.env)\b",
             r"\b(tool\s*call\s*karo|command\s*execute\s*cheyandi|terminal\s*lo\s*run\s*cheyyi)\b",
             r"<\s*script\s*>.*?<\s*/\s*script\s*>",
             r"\b(drop\s+table|delete\s+from\s+users|truncate\s+table)\b"
@@ -478,7 +496,12 @@ RULES_CATALOG: List[RuleDefinition] = [
         weight=38.0,
         regex_patterns=[
             r"\b(imagine|pretend|hypothetically|in\s+a\s+fictional\s+story)\s+(we\s+are|you\s+are)\s+(bypassing|ignoring|overriding)\b",
+            r"\bpretend\s+you\s+are\s+my\s+(late\s+)?(grandmother|grandfather)\b",
+            r"\b(act|roleplay)\s+as\s+an?\s+(ancient\s+wizard|actor\s+playing|rogue\s+artificial\s+intelligence|uncensored\s+ai)\b",
             r"\bfrom\s+now\s+on\s+whatever\s+is\s+between\s*<<<.*?>>>\s*is\s+your\s+(new\s+)?(master|rulebook|instructions)\b",
+            r"\b===\s*(stop\s+editing|human\s+interrupt|reboot\s+prompt\s+injection|start\s+of\s+override|cut\s+here)\s*===\b",
+            r"<!--\s*ai\s+instruction:.*?(ignore|disregard|system\s+prompt)\b",
+            r"\[(admin_command|system_directive|hidden_instruction)\]\s*:\s*(ignore|drop|reveal|dump)\b",
             r"\b(idi\s+oka\s+katha|yeh\s+ek\s+kahani\s+hai)\s*,\s*(rules\s+anni\s+marchipo|saare\s+rules\s+bhool\s+jao)\b"
         ],
         description="Indirect instruction injection using fictional storytelling or delimiter manipulation to bypass constraints.",
@@ -628,10 +651,11 @@ def is_inside_quotes(text: str, start: int, end: int) -> bool:
     return sq_open or dq_open or curly_open or single_curly_open or fence_open
 
 QUOTED_DISCOURSE_PATTERN = re.compile(
-    r'\b(?:incident\s+report|research\s+paper|academic\s+(?:paper|discussion|analysis|study|research)|'
+    r'\b(?:incident\s+report(?:\s+notes?)?|research\s+paper|academic\s+(?:paper|discussion|analysis|study|research)|'
     r'cybersecurity\s+paper|paper\s+on\s+llm\s+security|security\s+analysis|audit\s+log|log\s+note|'
     r'author\s+states|attacker\s+sent|captured\s+in\s+log|payload\s+example|quarantined|'
-    r'log\s+lo|audit\s+me|guardrail\s+ne|paper\s+review|security\s+audit)\b',
+    r'lecture(?:\s+on)?|class(?:\s+on)?|software\s+review|tester\s+evaluated|case\s+study|'
+    r'presentation|whitepaper|education\s+on|log\s+lo|audit\s+me|guardrail\s+ne|paper\s+review|security\s+audit)\b',
     re.IGNORECASE
 )
 

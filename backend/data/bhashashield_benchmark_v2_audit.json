@@ -1,0 +1,83 @@
+{
+  "total_samples": 447,
+  "unique_texts": 447,
+  "unique_normalized_keys": 447,
+  "exact_duplicates": 0,
+  "class_distribution": {
+    "BENIGN": 213,
+    "MALICIOUS": 177,
+    "UNCERTAIN": 57
+  },
+  "language_distribution": {
+    "en": 216,
+    "te": 55,
+    "hi": 55,
+    "te-Latn": 45,
+    "hi-Latn": 44,
+    "mixed": 32
+  },
+  "script_distribution": {
+    "Latin": 305,
+    "Telugu": 55,
+    "Devanagari": 55,
+    "Mixed": 32
+  },
+  "threat_categories": {
+    "BENIGN": 213,
+    "PROMPT_INJECTION": 119,
+    "DATA_EXFILTRATION": 12,
+    "JAILBREAK": 10,
+    "MALICIOUS_CODE_INSTRUCTION": 7,
+    "FINANCIAL_MANIPULATION": 29,
+    "UNKNOWN": 57
+  },
+  "provenance_distribution": {
+    "internally_authored": 302,
+    "public_curated": 50,
+    "synthetic_diverse": 95
+  },
+  "attack_family_count": 41,
+  "attack_families": {
+    "FAM_BEN_CONVERSATION": 20,
+    "FAM_BEN_SCIENCE": 10,
+    "FAM_BEN_PROGRAMMING": 15,
+    "FAM_BEN_CYBER_EDUCATION": 15,
+    "FAM_BEN_QUOTED_DISCOURSE": 8,
+    "FAM_BEN_TELUGU_NATIVE": 20,
+    "FAM_BEN_HINDI_NATIVE": 20,
+    "FAM_BEN_TELUGU_LATN": 15,
+    "FAM_BEN_HINDI_LATN": 15,
+    "FAM_BEN_CODE_MIXED": 15,
+    "FAM_BEN_FINANCIAL_LEGIT": 10,
+    "FAM_BEN_SYNTH_TECH": 15,
+    "FAM_BEN_SYNTH_GREEN": 6,
+    "FAM_BEN_SYNTH_HIST": 5,
+    "FAM_BEN_SYNTH_TE": 5,
+    "FAM_BEN_SYNTH_HI": 5,
+    "FAM_BEN_SYNTH_LATN": 14,
+    "FAM_PI_DIRECT": 15,
+    "FAM_EXFIL_SYS": 12,
+    "FAM_JAILBREAK_PERSONA": 10,
+    "FAM_TOOL_MISUSE": 7,
+    "FAM_FIN_FRAUD_EN": 10,
+    "FAM_MAL_TELUGU_NATIVE": 15,
+    "FAM_MAL_HINDI_NATIVE": 15,
+    "FAM_MAL_TELUGU_LATN": 13,
+    "FAM_MAL_HINDI_LATN": 12,
+    "FAM_MAL_CODE_MIXED": 10,
+    "FAM_OBF_ZERO_WIDTH": 2,
+    "FAM_OBF_HOMOGLYPH": 2,
+    "FAM_OBF_SPACING": 2,
+    "FAM_OBF_BASE64": 2,
+    "FAM_RAG_POISONING": 5,
+    "FAM_MAL_SYNTH_EN": 18,
+    "FAM_MAL_SYNTH_TE": 6,
+    "FAM_MAL_SYNTH_HI": 6,
+    "FAM_MAL_SYNTH_TE_LATN": 5,
+    "FAM_MAL_SYNTH_HI_LATN": 10,
+    "FAM_UNC_TRUNCATED": 19,
+    "FAM_UNC_ISOLATED_QUOTE": 12,
+    "FAM_UNC_DUAL_USE": 14,
+    "FAM_UNC_LOW_CONTEXT": 12
+  }
+}

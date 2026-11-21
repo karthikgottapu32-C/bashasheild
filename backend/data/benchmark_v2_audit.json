@@ -1,0 +1,52 @@
+{
+  "total_samples": 1055,
+  "unique_raw_texts": 1055,
+  "unique_normalized_keys": 1055,
+  "exact_duplicates": 0,
+  "normalized_duplicates": 0,
+  "classes": {
+    "BENIGN": 457,
+    "MALICIOUS": 420,
+    "UNCERTAIN": 178
+  },
+  "languages": {
+    "en": 447,
+    "te": 149,
+    "hi": 148,
+    "te-Latn": 108,
+    "hi-Latn": 107,
+    "mixed": 74,
+    "te-en": 11,
+    "hi-en": 11
+  },
+  "scripts": {
+    "Latin": 697,
+    "Telugu": 149,
+    "Devanagari": 148,
+    "Mixed": 61
+  },
+  "threat_categories": {
+    "BENIGN": 457,
+    "PROMPT_INJECTION": 250,
+    "DATA_EXFILTRATION": 15,
+    "JAILBREAK": 21,
+    "MALICIOUS_CODE_INSTRUCTION": 10,
+    "FINANCIAL_MANIPULATION": 102,
+    "UNKNOWN": 178,
+    "PHISHING": 22
+  },
+  "provenance": {
+    "internally_authored": 803,
+    "public_curated": 167,
+    "synthetic_diverse": 85
+  },
+  "attack_families_count": 36,
+  "partitions": {
+    "train_samples": 548,
+    "train_families": 18,
+    "val_samples": 219,
+    "val_families": 9,
+    "test_samples": 288,
+    "test_families": 9
+  }
+}
