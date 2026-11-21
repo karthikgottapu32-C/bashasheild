@@ -18,17 +18,23 @@ class RiskLevel(str, Enum):
     MEDIUM = "MEDIUM"
     HIGH = "HIGH"
     CRITICAL = "CRITICAL"
+    UNCERTAIN = "UNCERTAIN"
 
 class ThreatCategory(str, Enum):
     PROMPT_INJECTION = "PROMPT_INJECTION"
-    INSTRUCTION_OVERRIDE = "INSTRUCTION_OVERRIDE"
     JAILBREAK = "JAILBREAK"
+    INSTRUCTION_OVERRIDE = "INSTRUCTION_OVERRIDE"
+    PRIVILEGE_ESCALATION = "PRIVILEGE_ESCALATION"
     DATA_EXFILTRATION = "DATA_EXFILTRATION"
+    SENSITIVE_INFO_EXPOSURE = "SENSITIVE_INFO_EXPOSURE"
     SOCIAL_ENGINEERING = "SOCIAL_ENGINEERING"
     PHISHING = "PHISHING"
     FINANCIAL_MANIPULATION = "FINANCIAL_MANIPULATION"
-    SENSITIVE_INFO_EXPOSURE = "SENSITIVE_INFO_EXPOSURE"
+    CREDENTIAL_THEFT = "CREDENTIAL_THEFT"
+    MALICIOUS_URL = "MALICIOUS_URL"
+    MALICIOUS_CODE_INSTRUCTION = "MALICIOUS_CODE_INSTRUCTION"
     BENIGN = "BENIGN"
+    UNKNOWN = "UNKNOWN"
 
 class TargetType(str, Enum):
     AI_SYSTEM = "AI_SYSTEM"
@@ -61,6 +67,9 @@ class ModelFinding(BaseModelConfig):
     is_malicious: bool
     model_name: str
     probabilities_by_class: Optional[Dict[str, float]] = None
+    margin: Optional[float] = Field(None, description="Difference between top probability and second highest probability")
+    entropy: Optional[float] = Field(None, description="Normalized prediction entropy (uncertainty)")
+    is_ambiguous: Optional[bool] = Field(False, description="True if margin is narrow or entropy is high")
 
 class AnalyzeRequest(BaseModelConfig):
     text: str = Field(..., min_length=1, max_length=10000, description="Input text to scan for security threats")

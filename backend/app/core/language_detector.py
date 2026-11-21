@@ -202,10 +202,18 @@ def detect_language(text: str, language_hint: str = "auto") -> Dict[str, Any]:
         detected_lang = "Mixed"
         lang_code = "mixed"
         conf = 0.75
+    elif en_total >= 1:
+        detected_lang = "English"
+        lang_code = "en"
+        conf = min(0.98, 0.70 + (en_total * 0.04))
+    elif len(tokens) > 0:
+        detected_lang = "Undetermined (Latin)"
+        lang_code = "und"
+        conf = 0.45
     else:
         detected_lang = "English"
         lang_code = "en"
-        conf = min(0.98, 0.75 + (en_total * 0.03))
+        conf = 0.50
 
     return {
         "language": detected_lang,

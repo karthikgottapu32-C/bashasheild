@@ -139,19 +139,30 @@ class ModelService:
             try:
                 probs = self.model.predict_proba([text])[0]
                 classes = list(getattr(self.model, "classes_", ["BENIGN", "PROMPT_INJECTION"]))
-                pred_idx = int(np.argmax(probs))
-                pred_class = classes[pred_idx]
-                max_prob = float(probs[pred_idx])
+                sorted_idx = np.argsort(probs)[::-1]
+                top_idx = int(sorted_idx[0])
+                pred_class = classes[top_idx]
+                max_prob = float(probs[top_idx])
+
+                second_prob = float(probs[sorted_idx[1]]) if len(sorted_idx) > 1 else 0.0
+                margin = float(max_prob - second_prob)
+
+                p_safe = np.clip(probs, 1e-9, 1.0)
+                entropy = float(-np.sum(p_safe * np.log2(p_safe)) / np.log2(max(2, len(probs))))
+                is_ambiguous = (margin < 0.20 or entropy > 0.75)
 
                 # Determine if malicious
-                is_malicious = (pred_class not in ("BENIGN", "0", 0))
+                is_malicious = (pred_class not in ("BENIGN", "0", 0, "UNKNOWN"))
 
                 return ModelFinding(
                     predicted_class=str(pred_class),
                     probability=round(max_prob, 3),
                     is_malicious=is_malicious,
                     model_name=getattr(self.model, "name", "BhashaShield-ML-v1"),
-                    probabilities_by_class={str(c): round(float(p), 3) for c, p in zip(classes, probs)}
+                    probabilities_by_class={str(c): round(float(p), 3) for c, p in zip(classes, probs)},
+                    margin=round(margin, 3),
+                    entropy=round(entropy, 3),
+                    is_ambiguous=is_ambiguous
                 )
             except Exception as e:
                 logger.warning(f"Scikit-learn inference error: {e}")

@@ -1,6 +1,6 @@
 export type InputChannel = "UPI Remark" | "SMS" | "WhatsApp" | "Email" | "General Text";
 
-export type RiskLevel = "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
+export type RiskLevel = "LOW" | "MEDIUM" | "HIGH" | "CRITICAL" | "UNCERTAIN";
 
 export interface HighlightedSpan {
   start: int_or_number;

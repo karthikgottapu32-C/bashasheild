@@ -4,7 +4,7 @@
  */
 
 export type PolicyDecision = 'ALLOW' | 'REVIEW' | 'BLOCK';
-export type RiskLevel = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+export type RiskLevel = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL' | 'UNCERTAIN';
 export type TargetType = 'AI_SYSTEM' | 'HUMAN_USER' | 'BOTH' | 'NONE';
 
 export interface GuardDecisionResponse {

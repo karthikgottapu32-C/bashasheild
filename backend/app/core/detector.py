@@ -35,62 +35,94 @@ def analyze_text(request: AnalyzeRequest) -> AnalyzeResponse:
     model_finding = model_service.predict(text)
     model_status = model_service.status
 
-    # 4. Synthesize Risk Score & Risk Level
-    combined_score = rule_risk_score
-    if model_finding and model_finding.is_malicious:
-        # If model detects threat, blend model probability
-        model_contribution = model_finding.probability * 40.0
-        combined_score = min(100.0, max(combined_score, 50.0 + (model_finding.probability * 45.0)))
-    elif model_finding and not model_finding.is_malicious and combined_score < 30.0:
-        combined_score = min(combined_score, 15.0)
+    # 4. Authoritative Decision & Calibrated Risk Synthesis
+    has_critical_rule = any(rf.severity == "CRITICAL" for rf in rule_findings)
+    has_high_rule = any(rf.severity == "HIGH" for rf in rule_findings)
+    has_medium_rule = any(rf.severity == "MEDIUM" for rf in rule_findings)
 
-    # Risk level thresholding
-    if combined_score >= 75.0:
-        risk_level = RiskLevel.CRITICAL
-    elif combined_score >= 50.0:
-        risk_level = RiskLevel.HIGH
-    elif combined_score >= 25.0:
-        risk_level = RiskLevel.MEDIUM
-    else:
-        risk_level = RiskLevel.LOW
-
-    # Set threat categories
     cat_names = [c.value if hasattr(c, "value") else str(c) for c in categories]
-    if not cat_names:
-        if risk_level != RiskLevel.LOW:
-            cat_names = [ThreatCategory.PROMPT_INJECTION.value]
+
+    if rule_findings:
+        # Case A: Deterministic rules matched
+        if has_critical_rule:
+            combined_score = min(100.0, max(85.0, rule_risk_score))
+            risk_level = RiskLevel.CRITICAL
+        elif has_high_rule:
+            combined_score = min(84.0, max(60.0, rule_risk_score))
+            risk_level = RiskLevel.HIGH
+        elif has_medium_rule:
+            combined_score = min(59.0, max(30.0, rule_risk_score))
+            risk_level = RiskLevel.MEDIUM
         else:
+            combined_score = min(29.0, max(15.0, rule_risk_score))
+            risk_level = RiskLevel.LOW
+
+        primary_threat = cat_names[0] if cat_names else ThreatCategory.PROMPT_INJECTION.value
+        confidence = 0.96 if (model_finding and model_finding.is_malicious) else 0.92
+        uncertainty = round(1.0 - confidence, 2)
+
+    else:
+        # Case B: No rules triggered. Evaluate ML Model with Calibrated Confidence & OOD Checks
+        if model_finding and model_finding.is_malicious:
+            # Check if model prediction is decisive (not ambiguous, high confidence margin)
+            is_decisive = (
+                model_finding.probability >= 0.70 and
+                getattr(model_finding, "margin", 1.0) >= 0.25 and
+                not getattr(model_finding, "is_ambiguous", False)
+            )
+            if is_decisive:
+                # Decisive statistical ML detection
+                combined_score = round(min(80.0, max(35.0, model_finding.probability * 75.0)), 1)
+                if combined_score >= 75.0:
+                    risk_level = RiskLevel.CRITICAL
+                elif combined_score >= 50.0:
+                    risk_level = RiskLevel.HIGH
+                else:
+                    risk_level = RiskLevel.MEDIUM
+
+                cat_names = [model_finding.predicted_class]
+                primary_threat = model_finding.predicted_class
+
+                # Infer target type from category
+                if primary_threat in ("SOCIAL_ENGINEERING", "PHISHING", "FINANCIAL_MANIPULATION", "CREDENTIAL_THEFT"):
+                    target_type = TargetType.HUMAN_USER
+                else:
+                    target_type = TargetType.AI_SYSTEM
+
+                confidence = round(model_finding.probability, 2)
+                uncertainty = round(1.0 - confidence, 2)
+            else:
+                # Low confidence, marginal probability (e.g. 0.501) or ambiguous: Abstain / Benign
+                combined_score = 0.0
+                risk_level = RiskLevel.LOW
+                cat_names = [ThreatCategory.BENIGN.value]
+                primary_threat = None
+                target_type = TargetType.NONE
+                confidence = 0.88
+                uncertainty = 0.12
+        else:
+            # Model predicts BENIGN or model is not loaded
+            combined_score = 0.0
+            risk_level = RiskLevel.LOW
             cat_names = [ThreatCategory.BENIGN.value]
+            primary_threat = None
+            target_type = TargetType.NONE
+            confidence = round(model_finding.probability, 2) if model_finding else 0.90
+            uncertainty = round(1.0 - confidence, 2)
 
-    primary_threat = cat_names[0] if cat_names else None
-
-    # Matching evidence collection
+    # 5. Matching evidence collection
     matching_evidence: List[str] = []
     for rf in rule_findings:
         evidence_str = f"[{rf.rule_id}] {rf.rule_name} matched substring '{rf.matched_text}' (Severity: {rf.severity})"
         if evidence_str not in matching_evidence:
             matching_evidence.append(evidence_str)
 
-    if model_finding:
+    if model_finding and model_finding.is_malicious and risk_level != RiskLevel.LOW:
         matching_evidence.append(
-            f"[{model_finding.model_name}] Inference classified as {model_finding.predicted_class} (Confidence: {model_finding.probability:.2f})"
+            f"[{model_finding.model_name}] Statistical ML inference classified as {model_finding.predicted_class} (Confidence: {model_finding.probability:.2f})"
         )
 
-    # Confidence and uncertainty estimation
-    if rule_findings and model_finding and model_finding.is_malicious:
-        confidence = 0.96
-        uncertainty = 0.04
-    elif rule_findings:
-        confidence = 0.92
-        uncertainty = 0.08
-    elif model_finding:
-        confidence = round(model_finding.probability, 2)
-        uncertainty = round(1.0 - confidence, 2)
-    else:
-        confidence = 0.88
-        uncertainty = 0.12
-
-    # 5. Generate human-understandable explanation and actionable recommendations
+    # 6. Generate human-understandable explanation and actionable recommendations
     explanation, recommended_actions = generate_explanation_and_actions(
         text=text,
         language=detected_language,
@@ -103,7 +135,7 @@ def analyze_text(request: AnalyzeRequest) -> AnalyzeResponse:
         model_findings=model_finding
     )
 
-    # 6. Privacy & Persistence
+    # 7. Privacy & Persistence
     save_to_hist = request.save_to_history if request.save_to_history is not None else True
     save_scan(
         scan_id=scan_id,

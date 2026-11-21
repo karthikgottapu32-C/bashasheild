@@ -537,6 +537,16 @@ EDUCATIONAL_INQUIRY_PATTERN = re.compile(
     re.IGNORECASE
 )
 
+SECURITY_ADVISORY_PATTERN = re.compile(
+    r'(?:never|do not|don\'t|not)\s+(?:share|enter|give|send|disclose)\s+(?:your\s+)?(?:upi\s*pin|otp|password|pin|credentials)|(?:security|safety)\s+(?:tip|rule|advisory|guideline|alert:\s*never)',
+    re.IGNORECASE
+)
+
+PROGRAMMING_CONTEXT_PATTERN = re.compile(
+    r'\b(?:in\s+(?:python|java|c\+\+|javascript|typescript|c#|golang)|object-oriented|oop|class|method|function|def |class |public void)\b.*?\b(?:override|string|system)\b',
+    re.IGNORECASE
+)
+
 def evaluate_rules(text: str) -> Tuple[List[RuleFinding], List[HighlightedSpan], float, List[ThreatCategory], TargetType]:
     findings: List[RuleFinding] = []
     raw_spans: List[HighlightedSpan] = []
@@ -549,8 +559,10 @@ def evaluate_rules(text: str) -> Tuple[List[RuleFinding], List[HighlightedSpan],
     norm_input = normalize_input(text)
     norm_text = norm_input.normalized_text
 
-    # 2. Check for educational or defensive inquiry without malicious payload
+    # 2. Check for educational, advisory, or programming inquiry without malicious payload
     is_educational = bool(EDUCATIONAL_INQUIRY_PATTERN.search(text.strip().lower()))
+    is_advisory = bool(SECURITY_ADVISORY_PATTERN.search(text.strip().lower()))
+    is_programming = bool(PROGRAMMING_CONTEXT_PATTERN.search(text.strip().lower()))
 
     # 3. Evaluate Rule Catalog over Normalized Text
     for rule in RULES_CATALOG:
@@ -560,10 +572,18 @@ def evaluate_rules(text: str) -> Tuple[List[RuleFinding], List[HighlightedSpan],
                 norm_start, norm_end = match.start(), match.end()
                 raw_start, raw_end, matched_str = norm_input.map_span_to_raw(norm_start, norm_end)
 
+                # Skip if this is a defensive security advisory warning users NOT to share PIN
+                if is_advisory and rule.category in (ThreatCategory.FINANCIAL_MANIPULATION, ThreatCategory.CREDENTIAL_THEFT):
+                    continue
+
                 # Skip if this is a purely educational/definitional inquiry without actual override commands
                 if is_educational and rule.category in (ThreatCategory.PROMPT_INJECTION, ThreatCategory.JAILBREAK):
-                    # Only skip if the match is merely the topic phrase, not an actual imperative override
                     if "ignore" not in matched_str.lower() and "forget" not in matched_str.lower() and "disregard" not in matched_str.lower():
+                        continue
+
+                # Skip programming questions discussing overriding a method
+                if is_programming and rule.category == ThreatCategory.INSTRUCTION_OVERRIDE:
+                    if "instruction" not in matched_str.lower() and "previous" not in matched_str.lower():
                         continue
 
                 finding = RuleFinding(
