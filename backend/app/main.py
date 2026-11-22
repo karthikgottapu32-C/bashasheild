@@ -344,7 +344,7 @@ def health_check():
 @app.post("/v1/auth/register", response_model=AuthResponse)
 def register_endpoint(req: UserRegisterRequest):
     clean_username = req.username.lower().strip()
-    clean_email = req.email.lower().strip()
+    clean_email = req.email.lower().strip() if req.email else f"{clean_username}@bhashashield.internal"
     if not all(c.isalnum() or c in ("_", "-") for c in clean_username) or len(clean_username) < 3:
         raise HTTPException(status_code=400, detail="Username must be alphanumeric (allowing '_' or '-') and at least 3 characters long.")
     if "@" not in clean_email or "." not in clean_email:

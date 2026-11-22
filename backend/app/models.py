@@ -120,7 +120,7 @@ class ScanRecord(BaseModelConfig):
 
 class UserRegisterRequest(BaseModelConfig):
     username: str = Field(..., min_length=3, max_length=64, description="Alphanumeric username")
-    email: str = Field(..., min_length=5, max_length=255, description="User email address")
+    email: Optional[str] = Field(None, description="Optional user email address")
     password: str = Field(..., min_length=8, max_length=128, description="User password (min 8 characters)")
 
 class UserLoginRequest(BaseModelConfig):
