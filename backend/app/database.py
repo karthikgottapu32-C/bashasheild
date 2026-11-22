@@ -4,6 +4,8 @@ import os
 import logging
 import uuid
 import time
+import re
+from urllib.parse import urlparse, unquote, parse_qs
 from datetime import datetime
 from typing import List, Optional, Dict, Any, Tuple
 from pathlib import Path
@@ -13,50 +15,252 @@ from app.models import ScanRecord, DashboardStats, RiskLevel
 logger = logging.getLogger("bhashashield.database")
 
 # Check if PostgreSQL connection is available
-DATABASE_URL = os.environ.get("DATABASE_URL") or getattr(settings, "DATABASE_URL", None)
+DATABASE_URL = os.environ.get("DATABASE_URL") or os.environ.get("POSTGRES_URL") or getattr(settings, "DATABASE_URL", None)
 USE_POSTGRES = False
 pg_pool = None
 
+# Secure diagnostic state (never exposes credentials or full URI)
+_pg_diagnostics: Dict[str, Any] = {
+    "configured": False,
+    "host": None,
+    "port": None,
+    "user": None,
+    "has_password": False,
+    "sslmode": None,
+    "failure_category": "NONE",
+    "last_error": None
+}
+
+
+def parse_postgres_dsn(url: str) -> Dict[str, Any]:
+    """
+    Safely parses PostgreSQL connection URI for psycopg2.
+    Supports:
+    - Standard RFC 3986 PostgreSQL URIs
+    - Supabase Session Pooler (aws-X-Y.pooler.supabase.com:5432)
+    - Supabase Transaction Pooler (aws-X-Y.pooler.supabase.com:6543)
+    - Preserves complex usernames (e.g. postgres.projectref)
+    - Decodes percent-encoded passwords (e.g. %40, %23, %24)
+    - Strips surrounding quotes or whitespace
+    - Defaults sslmode to 'require' for cloud databases
+    - Returns clean kwargs for psycopg2.connect / ThreadedConnectionPool
+    """
+    if not url:
+        return {}
+    
+    clean = url.strip().strip("'\"")
+    if clean.startswith("postgres://"):
+        clean = "postgresql://" + clean[len("postgres://"):]
+    
+    if not clean.startswith("postgresql://"):
+        return {}
+    
+    # 1. Regex parse to handle raw special characters in passwords without breaking
+    pattern = r"^postgresql://([^:]+):(.*)@([^:/@]+)(?::(\d+))?/([^?]+)(?:\?(.*))?$"
+    m = re.match(pattern, clean)
+    if m:
+        u_raw, p_raw, host, port_str, dbname, query_str = m.groups()
+        user = unquote(u_raw)
+        password = unquote(p_raw)
+        port = int(port_str) if port_str else 5432
+        
+        query_params = {}
+        if query_str:
+            for pair in query_str.split("&"):
+                if "=" in pair:
+                    k, v = pair.split("=", 1)
+                    query_params[k.strip().lower()] = v.strip()
+        
+        sslmode = query_params.get("sslmode", "require")
+        connect_timeout = int(query_params.get("connect_timeout", 10))
+        
+        return {
+            "user": user,
+            "password": password,
+            "raw_password": p_raw,
+            "host": host,
+            "port": port,
+            "dbname": dbname,
+            "sslmode": sslmode,
+            "connect_timeout": connect_timeout
+        }
+    
+    # 2. Fallback to urllib.parse
+    try:
+        p = urlparse(clean)
+        user = unquote(p.username) if p.username else None
+        password = unquote(p.password) if p.password else None
+        host = p.hostname
+        port = p.port or 5432
+        dbname = p.path.lstrip("/") if p.path else "postgres"
+        query_params = parse_qs(p.query)
+        sslmode = query_params.get("sslmode", ["require"])[0]
+        timeout_val = query_params.get("connect_timeout", ["10"])[0]
+        
+        if not host:
+            return {}
+        return {
+            "user": user,
+            "password": password,
+            "raw_password": p.password,
+            "host": host,
+            "port": port,
+            "dbname": dbname,
+            "sslmode": sslmode,
+            "connect_timeout": int(timeout_val)
+        }
+    except Exception:
+        return {}
+
+
+def _sanitize_error(err_str: str) -> str:
+    """Removes passwords and connection strings from error messages."""
+    safe = re.sub(r'password=[^\s]+', 'password=***', err_str)
+    safe = re.sub(r':([^:@]+)@', ':***@', safe)
+    return safe
+
+
+def _classify_pg_error(err_str: str) -> str:
+    """Categorizes PostgreSQL connection errors for actionable diagnostics."""
+    if "password authentication failed" in err_str:
+        return "AUTH_FAILED"
+    elif "timeout expired" in err_str or "timed out" in err_str:
+        return "CONNECT_TIMEOUT"
+    elif "could not translate host name" in err_str or "Name or service not known" in err_str:
+        return "DNS_RESOLUTION_FAILED"
+    elif "Connection refused" in err_str:
+        return "CONNECTION_REFUSED"
+    elif "SSL" in err_str or "certificate" in err_str:
+        return "SSL_ERROR"
+    return "CONNECTION_ERROR"
+
+
 def init_postgres_pool():
     """Initializes PostgreSQL connection pool with strict startup validation."""
-    global USE_POSTGRES, pg_pool, DATABASE_URL
-    DATABASE_URL = os.environ.get("DATABASE_URL") or getattr(settings, "DATABASE_URL", None)
+    global USE_POSTGRES, pg_pool, DATABASE_URL, _pg_diagnostics
+    DATABASE_URL = os.environ.get("DATABASE_URL") or os.environ.get("POSTGRES_URL") or getattr(settings, "DATABASE_URL", None)
+    
     if DATABASE_URL and (DATABASE_URL.startswith("postgres://") or DATABASE_URL.startswith("postgresql://")):
+        parsed = parse_postgres_dsn(DATABASE_URL)
+        if "error" in parsed or not parsed.get("host"):
+            _pg_diagnostics = {
+                "configured": True,
+                "host": None,
+                "port": None,
+                "user": None,
+                "has_password": False,
+                "sslmode": None,
+                "failure_category": "CONFIG_PARSE_ERROR",
+                "last_error": "Failed to parse DATABASE_URL URI structure."
+            }
+            is_strict = getattr(settings, "REQUIRE_POSTGRES", False) or os.environ.get("REQUIRE_POSTGRES", "false").lower() in ("true", "1", "yes")
+            if is_strict:
+                raise RuntimeError("Strict PostgreSQL requirement failed on startup: Invalid DATABASE_URL format.")
+            return
+
+        _pg_diagnostics = {
+            "configured": True,
+            "host": parsed.get("host"),
+            "port": parsed.get("port"),
+            "user": parsed.get("user"),
+            "has_password": bool(parsed.get("password")),
+            "sslmode": parsed.get("sslmode", "require"),
+            "failure_category": "NONE",
+            "last_error": None
+        }
+
         try:
             import psycopg2
-            import psycopg2.extras
             from psycopg2.pool import ThreadedConnectionPool
-            
-            # Normalize connection string for psycopg2 and configure connection timeouts
-            dsn = DATABASE_URL
-            if dsn.startswith("postgres://"):
-                dsn = dsn.replace("postgres://", "postgresql://", 1)
-            if "connect_timeout=" not in dsn and "?" not in dsn:
-                dsn += "?connect_timeout=10"
-            elif "connect_timeout=" not in dsn and "?" in dsn:
-                dsn += "&connect_timeout=10"
-            
-            pg_pool = ThreadedConnectionPool(minconn=1, maxconn=20, dsn=dsn)
-            # Immediate checkout verification
-            conn = pg_pool.getconn()
-            with conn.cursor() as cur:
-                cur.execute("SELECT 1;")
-            pg_pool.putconn(conn)
-            USE_POSTGRES = True
-            logger.info("Configured and verified PostgreSQL ThreadedConnectionPool persistence engine.")
+
+            conn_kwargs = {
+                "user": parsed["user"],
+                "password": parsed["password"],
+                "host": parsed["host"],
+                "port": parsed["port"],
+                "dbname": parsed["dbname"],
+                "sslmode": parsed.get("sslmode", "require"),
+                "connect_timeout": parsed.get("connect_timeout", 10),
+            }
+
+            # Attempt 1: Connect via clean keyword arguments with unquoted password
+            last_exc = None
+            try:
+                pg_pool = ThreadedConnectionPool(minconn=1, maxconn=20, **conn_kwargs)
+                conn = pg_pool.getconn()
+                with conn.cursor() as cur:
+                    cur.execute("SELECT 1;")
+                pg_pool.putconn(conn)
+                USE_POSTGRES = True
+                _pg_diagnostics["failure_category"] = "NONE"
+                _pg_diagnostics["last_error"] = None
+                logger.info("Configured and verified PostgreSQL ThreadedConnectionPool (kwargs connection).")
+                return
+            except Exception as e1:
+                last_exc = e1
+                if pg_pool:
+                    try:
+                        pg_pool.closeall()
+                    except Exception:
+                        pass
+                    pg_pool = None
+
+            # Attempt 2: If raw_password differs (e.g. percent-encoded) and auth failed, retry with raw password
+            if parsed.get("raw_password") and parsed["raw_password"] != parsed["password"]:
+                try:
+                    retry_kwargs = dict(conn_kwargs)
+                    retry_kwargs["password"] = parsed["raw_password"]
+                    pg_pool = ThreadedConnectionPool(minconn=1, maxconn=20, **retry_kwargs)
+                    conn = pg_pool.getconn()
+                    with conn.cursor() as cur:
+                        cur.execute("SELECT 1;")
+                    pg_pool.putconn(conn)
+                    USE_POSTGRES = True
+                    _pg_diagnostics["failure_category"] = "NONE"
+                    _pg_diagnostics["last_error"] = None
+                    logger.info("Configured and verified PostgreSQL ThreadedConnectionPool (raw password retry).")
+                    return
+                except Exception as e2:
+                    last_exc = e2
+                    if pg_pool:
+                        try:
+                            pg_pool.closeall()
+                        except Exception:
+                            pass
+                        pg_pool = None
+
+            # If all attempts failed
+            raise last_exc
+
         except Exception as e:
-            logger.warning(f"Failed to initialize PostgreSQL pool: {e}. Falling back to SQLite WAL engine.")
+            raw_err = str(e)
+            safe_err = _sanitize_error(raw_err)
+            cat = _classify_pg_error(raw_err)
+            _pg_diagnostics["failure_category"] = cat
+            _pg_diagnostics["last_error"] = safe_err
+            logger.warning(f"Failed to initialize PostgreSQL pool [{cat}]: {safe_err}. Falling back to SQLite WAL engine.")
             USE_POSTGRES = False
             pg_pool = None
-            if settings.REQUIRE_POSTGRES:
-                raise RuntimeError(f"Strict PostgreSQL requirement failed on startup: {e}")
+            is_strict = getattr(settings, "REQUIRE_POSTGRES", False) or os.environ.get("REQUIRE_POSTGRES", "false").lower() in ("true", "1", "yes")
+            if is_strict:
+                raise RuntimeError(f"Strict PostgreSQL requirement failed on startup [{cat}]: {safe_err}")
     else:
         USE_POSTGRES = False
         pg_pool = None
+        _pg_diagnostics = {
+            "configured": False,
+            "host": None,
+            "port": None,
+            "user": None,
+            "has_password": False,
+            "sslmode": None,
+            "failure_category": "NONE",
+            "last_error": None
+        }
         if settings.REQUIRE_POSTGRES:
             raise RuntimeError(
                 "Strict PostgreSQL requirement failed on startup: REQUIRE_POSTGRES is true, "
-                "but DATABASE_URL is not configured or is not a valid PostgreSQL connection string."
+                "but DATABASE_URL is not configured."
             )
 
 # Execute pool initialization
@@ -91,9 +295,20 @@ def get_database_status() -> Dict[str, Any]:
     Returns a safe diagnostic of the persistence layer.
     Exposes only backend type, connection status, persistence mode,
     and whether DATABASE_URL is configured.
-    Never exposes raw credentials, hostnames, or connection strings.
+    Never exposes raw credentials, passwords, or connection strings.
     """
     has_url = bool(DATABASE_URL)
+    diag = {
+        "configured": _pg_diagnostics.get("configured", False),
+        "host": _pg_diagnostics.get("host"),
+        "port": _pg_diagnostics.get("port"),
+        "user": _pg_diagnostics.get("user"),
+        "has_password": _pg_diagnostics.get("has_password", False),
+        "sslmode": _pg_diagnostics.get("sslmode"),
+        "failure_category": _pg_diagnostics.get("failure_category", "NONE"),
+        "last_error": _pg_diagnostics.get("last_error")
+    }
+
     if USE_POSTGRES and pg_pool:
         conn = None
         try:
@@ -107,7 +322,8 @@ def get_database_status() -> Dict[str, Any]:
                 "persistence_mode": "durable_managed_cloud",
                 "database_url_configured": True,
                 "read_write_verified": True,
-                "total_scans_recorded": total_scans
+                "total_scans_recorded": total_scans,
+                "connection_diagnostics": diag
             }
         except Exception as e:
             return {
@@ -116,7 +332,8 @@ def get_database_status() -> Dict[str, Any]:
                 "persistence_mode": "durable_managed_cloud",
                 "database_url_configured": True,
                 "read_write_verified": False,
-                "error": str(e)
+                "error": _sanitize_error(str(e)),
+                "connection_diagnostics": diag
             }
         finally:
             if conn and pg_pool:
@@ -138,6 +355,7 @@ def get_database_status() -> Dict[str, Any]:
                 "database_url_configured": has_url,
                 "read_write_verified": True,
                 "total_scans_recorded": total_scans,
+                "connection_diagnostics": diag,
                 "note": "Production requires managed PostgreSQL for cross-restart persistence." if not has_url else "PostgreSQL connection failed; running in SQLite WAL fallback."
             }
         except Exception as e:
@@ -147,7 +365,8 @@ def get_database_status() -> Dict[str, Any]:
                 "persistence_mode": "container_local_ephemeral_wal",
                 "database_url_configured": has_url,
                 "read_write_verified": False,
-                "error": str(e)
+                "error": str(e),
+                "connection_diagnostics": diag
             }
 
 

@@ -1,11 +1,3 @@
-databases:
-  - name: bhashashield-postgres
-    databaseName: bhashashield
-    user: bhashashield_admin
-    plan: free
-    region: oregon
-    ipAllowList: [] # internal connection only
-
 services:
   # BhashaShield Enterprise Intelligence Engine & API
   - type: web
@@ -22,11 +14,7 @@ services:
       - key: ENVIRONMENT
         value: production
       - key: REQUIRE_POSTGRES
-        value: "true"
-      - key: DATABASE_URL
-        fromDatabase:
-          name: bhashashield-postgres
-          property: connectionString
+        value: "false"
       - key: CORS_ORIGINS
         value: "https://bhashashield-api.onrender.com,https://bhashashield.onrender.com"
       - key: RATE_LIMIT_PER_MINUTE
