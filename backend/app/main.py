@@ -10,6 +10,7 @@ import os
 import json
 import time
 import logging
+import asyncio
 
 from app.config import settings
 from app.models import (
@@ -44,7 +45,7 @@ from app.core.model_service import model_service
 from app.database import (
     init_db,
     init_postgres_pool,
-    USE_POSTGRES,
+    is_postgres_active,
     checkpoint_sqlite_wal,
     get_database_status,
     create_user,
@@ -187,13 +188,17 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
             _rate_limit_records[client_ip] = timestamps
         return await call_next(request)
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
+def _sync_startup_database():
+    """Synchronously initializes database within a background thread."""
     init_postgres_pool()
-    if settings.REQUIRE_POSTGRES and not USE_POSTGRES:
+    is_strict = getattr(settings, "REQUIRE_POSTGRES", False) or os.environ.get("REQUIRE_POSTGRES", "false").lower() in ("true", "1", "yes")
+    if is_strict and not is_postgres_active():
+        diag = get_database_status().get("connection_diagnostics", {})
+        cat = diag.get("failure_category", "UNKNOWN")
+        err = diag.get("last_error", "PostgreSQL pool failed to initialize")
         raise RuntimeError(
-            "FATAL: REQUIRE_POSTGRES is true, but PostgreSQL connection is unavailable. "
-            "Server refusing to start with ephemeral storage in production."
+            f"FATAL: REQUIRE_POSTGRES is true, but PostgreSQL connection is unavailable [{cat}]: {err}. "
+            f"Server refusing to start with ephemeral storage in production."
         )
     init_db()
     try:
@@ -201,7 +206,32 @@ async def lifespan(app: FastAPI):
         if stats.total_scans == 0:
             seed_demo_scans()
     except Exception as e:
-        logger.warning(f"DB startup warning: {e}")
+        logger.warning(f"DB startup seed warning: {e}")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    startup_timeout = float(os.environ.get("STARTUP_TIMEOUT_SECONDS", "10.0"))
+    is_strict = getattr(settings, "REQUIRE_POSTGRES", False) or os.environ.get("REQUIRE_POSTGRES", "false").lower() in ("true", "1", "yes")
+    loop = asyncio.get_running_loop()
+    try:
+        await asyncio.wait_for(loop.run_in_executor(None, _sync_startup_database), timeout=startup_timeout)
+        logger.info("Application database startup sequence successfully completed.")
+    except asyncio.TimeoutError:
+        safe_msg = f"Database startup sequence timed out after {startup_timeout}s."
+        logger.error(safe_msg)
+        if is_strict:
+            raise RuntimeError(f"FATAL: REQUIRE_POSTGRES is true, but database startup timed out after {startup_timeout}s.")
+        else:
+            logger.warning(f"{safe_msg} Falling back to SQLite WAL mode to allow server to open ports.")
+            init_db()
+    except Exception as e:
+        if is_strict:
+            logger.error(f"FATAL: Strict PostgreSQL startup failed: {e}")
+            raise
+        else:
+            logger.warning(f"Startup warning: {e}. Falling back to SQLite WAL mode.")
+            init_db()
+
     yield
     try:
         checkpoint_sqlite_wal()

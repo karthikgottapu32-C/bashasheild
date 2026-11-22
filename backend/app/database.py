@@ -173,6 +173,14 @@ def init_postgres_pool():
             import psycopg2
             from psycopg2.pool import ThreadedConnectionPool
 
+            # Ensure any previous pool is cleanly closed to prevent connection exhaustion
+            if pg_pool:
+                try:
+                    pg_pool.closeall()
+                except Exception:
+                    pass
+                pg_pool = None
+
             conn_kwargs = {
                 "user": parsed["user"],
                 "password": parsed["password"],
@@ -180,13 +188,18 @@ def init_postgres_pool():
                 "port": parsed["port"],
                 "dbname": parsed["dbname"],
                 "sslmode": parsed.get("sslmode", "require"),
-                "connect_timeout": parsed.get("connect_timeout", 10),
+                "connect_timeout": min(int(parsed.get("connect_timeout", 5)), 5),
+                "options": "-c statement_timeout=5000 -c lock_timeout=5000 -c idle_in_transaction_session_timeout=5000",
+                "keepalives": 1,
+                "keepalives_idle": 5,
+                "keepalives_interval": 2,
+                "keepalives_count": 3
             }
 
             # Attempt 1: Connect via clean keyword arguments with unquoted password
             last_exc = None
             try:
-                pg_pool = ThreadedConnectionPool(minconn=1, maxconn=20, **conn_kwargs)
+                pg_pool = ThreadedConnectionPool(minconn=1, maxconn=10, **conn_kwargs)
                 conn = pg_pool.getconn()
                 with conn.cursor() as cur:
                     cur.execute("SELECT 1;")
@@ -210,7 +223,7 @@ def init_postgres_pool():
                 try:
                     retry_kwargs = dict(conn_kwargs)
                     retry_kwargs["password"] = parsed["raw_password"]
-                    pg_pool = ThreadedConnectionPool(minconn=1, maxconn=20, **retry_kwargs)
+                    pg_pool = ThreadedConnectionPool(minconn=1, maxconn=10, **retry_kwargs)
                     conn = pg_pool.getconn()
                     with conn.cursor() as cur:
                         cur.execute("SELECT 1;")
@@ -257,14 +270,24 @@ def init_postgres_pool():
             "failure_category": "NONE",
             "last_error": None
         }
-        if settings.REQUIRE_POSTGRES:
+        is_strict = getattr(settings, "REQUIRE_POSTGRES", False) or os.environ.get("REQUIRE_POSTGRES", "false").lower() in ("true", "1", "yes")
+        if is_strict:
             raise RuntimeError(
                 "Strict PostgreSQL requirement failed on startup: REQUIRE_POSTGRES is true, "
                 "but DATABASE_URL is not configured."
             )
 
-# Execute pool initialization
-init_postgres_pool()
+# Execute initial pool check safely
+try:
+    if DATABASE_URL and (DATABASE_URL.startswith("postgres://") or DATABASE_URL.startswith("postgresql://")):
+        init_postgres_pool()
+except Exception as e:
+    logger.debug(f"Module-level PostgreSQL init deferred: {e}")
+
+
+def is_postgres_active() -> bool:
+    """Returns True if PostgreSQL connection pool is active and operational."""
+    return bool(USE_POSTGRES and pg_pool is not None)
 
 
 def get_sqlite_connection():
@@ -397,6 +420,10 @@ def init_db():
         conn = pg_pool.getconn()
         try:
             with conn.cursor() as cursor:
+                # Bounded timeouts for DDL migrations to avoid hanging startup
+                cursor.execute("SET statement_timeout = '5000';")
+                cursor.execute("SET lock_timeout = '5000';")
+
                 # 1. Migrations tracker
                 cursor.execute("""
                 CREATE TABLE IF NOT EXISTS schema_migrations (
@@ -441,12 +468,7 @@ def init_db():
 
                 # 4. Idempotent column check for user_id in existing deployments
                 cursor.execute("""
-                DO $$ 
-                BEGIN 
-                    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='scans' AND column_name='user_id') THEN 
-                        ALTER TABLE scans ADD COLUMN user_id VARCHAR(64) NOT NULL DEFAULT 'anonymous'; 
-                    END IF; 
-                END $$;
+                ALTER TABLE scans ADD COLUMN IF NOT EXISTS user_id VARCHAR(64) NOT NULL DEFAULT 'anonymous';
                 """)
 
                 # 5. Evaluations table

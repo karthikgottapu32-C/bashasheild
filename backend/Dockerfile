@@ -19,8 +19,10 @@ RUN if [ -d backend/app ]; then \
 # Ensure data directory exists with write permissions for SQLite runtime
 RUN mkdir -p /app/data
 
-# Maintain backwards-compatibility alias for /app/backend/data
-RUN mkdir -p /app/backend && ln -s /app/data /app/backend/data 2>/dev/null || true
+# Maintain backwards-compatibility alias for /app/backend and its submodules
+RUN mkdir -p /app/backend && \
+    (ln -s /app/data /app/backend/data 2>/dev/null || true) && \
+    (ln -s /app/app /app/backend/app 2>/dev/null || true)
 
 ENV PYTHONPATH="/app:/app/backend"
 ENV HOST="0.0.0.0"
