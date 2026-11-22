@@ -4,8 +4,11 @@ import {
   DashboardStats,
   ScanRecord,
   EvaluationMetrics,
+  EvaluationDataset,
   UserProfile,
-  AuthResponse
+  AuthResponse,
+  CustomizeRecommendationRequest,
+  CustomizeRecommendationResponse
 } from '../types';
 
 export function getApiBaseUrl(): string {
@@ -186,12 +189,28 @@ export async function clearScans(): Promise<{ status: string; cleared_records: n
   });
 }
 
-export async function getEvaluationReport(): Promise<EvaluationMetrics> {
-  return requestJson<EvaluationMetrics>('/evaluation/report');
+export async function customizeRecommendations(
+  request: CustomizeRecommendationRequest
+): Promise<CustomizeRecommendationResponse> {
+  return requestJson<CustomizeRecommendationResponse>('/v1/recommendations/customize', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(request),
+  });
 }
 
-export async function triggerEvaluation(): Promise<{ status: string; report: EvaluationMetrics }> {
-  return requestJson<{ status: string; report: EvaluationMetrics }>('/evaluation/run', {
+export async function getEvaluationDatasets(): Promise<{ datasets: EvaluationDataset[] }> {
+  return requestJson<{ datasets: EvaluationDataset[] }>('/v1/evaluation/datasets');
+}
+
+export async function getEvaluationReport(dataset = 'holdout_v2'): Promise<EvaluationMetrics> {
+  return requestJson<EvaluationMetrics>(`/evaluation/report?dataset=${encodeURIComponent(dataset)}`);
+}
+
+export async function triggerEvaluation(dataset = 'holdout_v2'): Promise<{ status: string; dataset?: string; report: EvaluationMetrics }> {
+  return requestJson<{ status: string; dataset?: string; report: EvaluationMetrics }>(`/evaluation/run?dataset=${encodeURIComponent(dataset)}`, {
     method: 'POST',
     headers: getAdminHeaders(),
   });

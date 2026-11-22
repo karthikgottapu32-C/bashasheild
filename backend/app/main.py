@@ -12,7 +12,7 @@ import time
 import logging
 import asyncio
 
-from app.config import settings
+from app.config import settings, BASE_DIR
 from app.models import (
     AnalyzeRequest,
     AnalyzeResponse,
@@ -24,11 +24,15 @@ from app.models import (
     GuardDecisionResponse,
     PolicyDecision,
     RiskLevel,
+    TargetType,
     UserRegisterRequest,
     UserLoginRequest,
     UserResponse,
-    AuthResponse
+    AuthResponse,
+    CustomizeRecommendationRequest,
+    CustomizeRecommendationResponse
 )
+from app.core.explainer import customize_recommendations
 from app.auth import (
     hash_password,
     verify_password,
@@ -149,6 +153,27 @@ def verify_admin_key(x_admin_key: Optional[str] = Header(None, alias="X-Admin-Ke
                 status_code=401,
                 detail="Unauthorized: Valid X-Admin-Key header required for administrative operations."
             )
+    return True
+
+def check_admin_access(
+    x_admin_key: Optional[str] = Header(None, alias="X-Admin-Key"),
+    current_user: Optional[Dict[str, Any]] = Depends(get_optional_user)
+) -> bool:
+    """
+    Allows administrative access if valid X-Admin-Key is provided OR if authenticated
+    user has role == 'admin'.
+    """
+    if settings.ADMIN_API_KEY:
+        if x_admin_key and x_admin_key == settings.ADMIN_API_KEY:
+            return True
+        if current_user and current_user.get("role") == "admin":
+            return True
+        raise HTTPException(
+            status_code=401,
+            detail="Administrative authorization required. Provide valid X-Admin-Key or sign in as an administrator."
+        )
+    if current_user and current_user.get("role") == "admin":
+        return True
     return True
 
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
@@ -710,28 +735,117 @@ def v1_export_scans_csv_endpoint(
         headers={"Content-Disposition": f"attachment; filename={filename}"}
     )
 
+@app.post("/v1/recommendations/customize", response_model=CustomizeRecommendationResponse)
+@app.post("/recommendations/customize", response_model=CustomizeRecommendationResponse)
+def customize_recommendations_endpoint(
+    req: CustomizeRecommendationRequest,
+    current_user: Optional[Dict[str, Any]] = Depends(get_optional_user)
+):
+    """
+    Customizes recommendation language and presentation style for an analysis result.
+    Strictly preserves the underlying classification, risk score, and policy decisions.
+    """
+    if req.scan_id:
+        user_id = current_user["sub"] if current_user else None
+        is_admin = bool(current_user and current_user.get("role") == "admin")
+        scan = get_scan_by_id(req.scan_id, user_id=user_id, is_admin=is_admin)
+        if scan:
+            if req.classification is None:
+                req.classification = "BENIGN" if scan.risk_level == "LOW" else ("UNCERTAIN" if scan.risk_level == "UNCERTAIN" else "MALICIOUS")
+            if req.risk_score is None:
+                req.risk_score = scan.risk_score
+            if req.risk_level is None:
+                req.risk_level = RiskLevel(scan.risk_level) if scan.risk_level in RiskLevel.__members__ else RiskLevel.LOW
+            if req.categories is None:
+                req.categories = scan.threat_categories
+            if req.target_type is None:
+                req.target_type = TargetType(scan.target_type) if scan.target_type in TargetType.__members__ else TargetType.AI_SYSTEM
+            if req.text is None:
+                req.text = scan.text_preview
+
+    result = customize_recommendations(
+        text=req.text,
+        language=req.language,
+        style=req.style,
+        classification=req.classification,
+        risk_score=req.risk_score,
+        risk_level=req.risk_level,
+        categories=req.categories,
+        target_type=req.target_type,
+        custom_recommendations=req.custom_recommendations,
+        detected_language_code=req.detected_language_code
+    )
+    return CustomizeRecommendationResponse(
+        scan_id=req.scan_id,
+        **result
+    )
+
+@app.get("/v1/evaluation/datasets")
+@app.get("/evaluation/datasets")
+def list_evaluation_datasets_endpoint():
+    return {
+        "datasets": [
+            {
+                "id": "holdout_v2",
+                "name": "Frozen Independent Holdout Set 2 (100 Samples)",
+                "description": "Zero-leakage frozen validation set with 50 malicious and 50 benign samples across Telugu, Hindi, English, and Romanized scripts.",
+                "sample_count": 100
+            },
+            {
+                "id": "benchmark_v3",
+                "name": "BhashaShield Comprehensive Benchmark v3 (1,200 Samples)",
+                "description": "Full synthetic and real-world multi-vector evaluation benchmark across all 5 orthographic varieties and 5 channels.",
+                "sample_count": 1200
+            },
+            {
+                "id": "synthetic_test",
+                "name": "Synthetic Test Split (1,000 Samples)",
+                "description": "Heuristic and generator test split for regression testing.",
+                "sample_count": 1000
+            }
+        ]
+    }
+
 @app.get("/evaluation/report")
-def evaluation_report_endpoint():
-    # Attempt to load from JSON report file
-    report_file = os.path.join(os.path.dirname(settings.DATABASE_PATH), "evaluation_report.json")
-    if os.path.exists(report_file):
+@app.get("/v1/evaluation/report")
+@app.get("/v1/evaluation-report")
+def evaluation_report_endpoint(dataset: Optional[str] = Query("holdout_v2")):
+    dkey = (dataset or "holdout_v2").lower().strip()
+    data_dir = BASE_DIR / "data"
+    
+    # Try dataset-specific file first
+    report_file = data_dir / f"evaluation_report_{dkey}.json"
+    if report_file.exists():
         with open(report_file, "r", encoding="utf-8") as f:
             return json.load(f)
 
+    # Try default evaluation_report.json
+    default_report = data_dir / "evaluation_report.json"
+    if default_report.exists():
+        with open(default_report, "r", encoding="utf-8") as f:
+            data = json.load(f)
+            if data.get("dataset_name") == dkey:
+                return data
+
     # Fallback to database
     db_eval = get_latest_evaluation()
-    if db_eval:
+    if db_eval and db_eval.get("dataset_name") == dkey:
         return db_eval
 
     # If no evaluation exists yet, generate one on demand
-    report = run_evaluation()
+    report = run_evaluation(dataset=dkey)
     return report
 
 @app.post("/evaluation/run")
-def trigger_evaluation_endpoint(_: bool = Depends(verify_admin_key)):
-    report = run_evaluation()
+@app.post("/v1/evaluation/run")
+def trigger_evaluation_endpoint(
+    dataset: Optional[str] = Query("holdout_v2"),
+    _: bool = Depends(check_admin_access)
+):
+    report = run_evaluation(dataset=dataset)
     return {
         "status": "completed",
+        "dataset": dataset,
         "report": report
     }
 
@@ -827,7 +941,7 @@ if STATIC_DIR and (STATIC_DIR / "assets").exists():
 
 @app.get("/{full_path:path}", include_in_schema=False)
 async def spa_fallback(full_path: str):
-    api_prefixes = ("v1/", "auth", "analyze", "stats", "scans", "health", "evaluation/", "docs", "openapi.json", "redoc")
+    api_prefixes = ("v1/", "auth", "analyze", "stats", "scans", "health", "evaluation", "recommendations", "docs", "openapi.json", "redoc")
     if full_path.startswith(api_prefixes):
         raise HTTPException(status_code=404, detail="Not Found")
     if STATIC_DIR and STATIC_DIR.exists():

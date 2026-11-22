@@ -77,6 +77,8 @@ class AnalyzeRequest(BaseModelConfig):
     language_hint: Optional[str] = Field("auto", description="Optional language hint (auto, te, hi, en, te-Latn, hi-Latn)")
     channel: Optional[InputChannel] = Field(InputChannel.GENERAL_TEXT, description="Input delivery channel")
     save_to_history: Optional[bool] = Field(True, description="Privacy toggle: if false, scan text and findings are not persisted")
+    output_language: Optional[str] = Field("auto", description="Desired presentation language: auto, en, te, hi, te-Latn, hi-Latn")
+    recommendation_style: Optional[str] = Field("actionable", description="Desired recommendation style: actionable, simple, detailed, technical")
 
 class AnalyzeResponse(BaseModelConfig):
     scan_id: str
@@ -102,6 +104,36 @@ class AnalyzeResponse(BaseModelConfig):
     recommended_actions: List[str]
     explanation: str
     channel: str
+    output_language: str = Field("en", description="Output language used for explanation and recommendations")
+    recommendation_style: str = Field("actionable", description="Style applied to recommendations")
+    default_output_language: str = Field("en", description="Natural matching language for input")
+    available_output_languages: List[str] = Field(default_factory=lambda: ["auto", "en", "te", "hi", "te-Latn", "hi-Latn"])
+    available_recommendation_styles: List[str] = Field(default_factory=lambda: ["actionable", "simple", "detailed", "technical"])
+
+class CustomizeRecommendationRequest(BaseModelConfig):
+    scan_id: Optional[str] = Field(None, description="Optional scan ID to update")
+    text: Optional[str] = Field(None, description="Optional original prompt text")
+    language: str = Field("auto", description="Target presentation language (auto, en, te, hi, te-Latn, hi-Latn)")
+    style: str = Field("actionable", description="Target style (actionable, simple, detailed, technical)")
+    classification: Optional[str] = Field(None, description="Immutable classification")
+    risk_score: Optional[float] = Field(None, description="Immutable risk score")
+    risk_level: Optional[RiskLevel] = Field(None, description="Immutable risk level")
+    categories: Optional[List[str]] = Field(None, description="Threat categories")
+    target_type: Optional[TargetType] = Field(None, description="Target type")
+    custom_recommendations: Optional[List[str]] = Field(None, description="User-edited custom recommendations")
+    detected_language_code: Optional[str] = Field("en", description="Detected input language code")
+
+class CustomizeRecommendationResponse(BaseModelConfig):
+    scan_id: Optional[str] = None
+    output_language: str
+    output_language_label: str
+    recommendation_style: str
+    explanation: str
+    recommended_actions: List[str]
+    classification: str
+    risk_score: float
+    risk_level: RiskLevel
+    immutability_verified: bool = True
 
 class ScanRecord(BaseModelConfig):
     id: str

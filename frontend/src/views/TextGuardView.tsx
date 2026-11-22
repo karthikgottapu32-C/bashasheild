@@ -15,10 +15,19 @@ import {
   RefreshCw,
   Cpu,
   Eye,
-  EyeOff
+  EyeOff,
+  Copy,
+  Check,
+  Edit3,
+  Plus,
+  Globe,
+  Sliders,
+  SlidersHorizontal,
+  Save,
+  RotateCcw
 } from 'lucide-react';
-import { analyzeText } from '../services/api';
-import { AnalyzeResponse, InputChannel } from '../types';
+import { analyzeText, customizeRecommendations } from '../services/api';
+import { AnalyzeResponse, InputChannel, RiskLevel } from '../types';
 import { RiskGauge } from '../components/RiskGauge';
 import { EvidenceHighlighter } from '../components/EvidenceHighlighter';
 import { CyberShield3D } from '../components/CyberShield3D';
@@ -75,17 +84,42 @@ const ATTACK_PRESETS = [
   }
 ];
 
+const OUTPUT_LANGUAGES = [
+  { value: "auto", label: "Auto (Match Input)" },
+  { value: "en", label: "English" },
+  { value: "te", label: "తెలుగు (Telugu)" },
+  { value: "hi", label: "हिन्दी (Hindi)" },
+  { value: "te-Latn", label: "Romanized Telugu" },
+  { value: "hi-Latn", label: "Romanized Hindi" }
+];
+
+const RECOMMENDATION_STYLES = [
+  { value: "actionable", label: "Actionable (Direct Commands)" },
+  { value: "simple", label: "Simple (Plain Language)" },
+  { value: "detailed", label: "Detailed (Full Mitigation)" },
+  { value: "technical", label: "Technical (SecOps Directives)" }
+];
+
 export const TextGuardView: React.FC = () => {
   const [inputText, setInputText] = useState("");
   const [channel, setChannel] = useState<InputChannel>("General Text");
   const [languageHint, setLanguageHint] = useState("auto");
+  const [outputLanguage, setOutputLanguage] = useState("auto");
+  const [recommendationStyle, setRecommendationStyle] = useState("actionable");
   const [saveToHistory, setSaveToHistory] = useState(true);
   const [isScanning, setIsScanning] = useState(false);
+  const [isCustomizing, setIsCustomizing] = useState(false);
   const [scanStage, setScanStage] = useState("");
   const [result, setResult] = useState<AnalyzeResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [localHistory, setLocalHistory] = useState<AnalyzeResponse[]>([]);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
+
+  // Recommendation editing & copy state
+  const [isEditingActions, setIsEditingActions] = useState(false);
+  const [editableActions, setEditableActions] = useState<string[]>([]);
+  const [newActionInput, setNewActionInput] = useState("");
+  const [copied, setCopied] = useState(false);
 
   const addToast = (toast: Omit<ToastMessage, 'id'>) => {
     const id = Math.random().toString(36).substring(2, 9);
@@ -122,13 +156,14 @@ export const TextGuardView: React.FC = () => {
     setError(null);
     setIsScanning(true);
     setResult(null);
+    setIsEditingActions(false);
 
     // Multi-stage visual scanning sequence
     const stages = [
       "Tokenizing script & linguistic structure...",
       "Matching multilingual & romanized attack rules...",
       "Running Multilingual Classifier & Statistical Embeddings...",
-      "Synthesizing threat vectors & evidence..."
+      "Synthesizing threat vectors & localized recommendations..."
     ];
 
     let currentStage = 0;
@@ -145,17 +180,21 @@ export const TextGuardView: React.FC = () => {
         text: inputText,
         language_hint: languageHint,
         channel: channel,
-        save_to_history: saveToHistory
+        save_to_history: saveToHistory,
+        output_language: outputLanguage,
+        recommendation_style: recommendationStyle
       });
 
       clearInterval(stageInterval);
       setResult(response);
+      setEditableActions(response.recommended_actions || []);
+
       if (saveToHistory) {
         setLocalHistory(prev => [response, ...prev.slice(0, 9)]);
       }
 
       addToast({
-        type: response.risk_level === 'LOW' ? 'success' : 'warning',
+        type: response.risk_level === 'LOW' ? 'success' : (response.risk_level === 'UNCERTAIN' ? 'info' : 'warning'),
         title: 'Threat Analysis Complete',
         message: `${response.risk_level} risk score (${Math.round(response.risk_score)}/100) identified.`
       });
@@ -178,10 +217,122 @@ export const TextGuardView: React.FC = () => {
     setInputText("");
     setResult(null);
     setError(null);
+    setIsEditingActions(false);
+    setEditableActions([]);
     addToast({
       type: 'info',
       title: 'Scanner Reset',
       message: 'Input cleared and ready for new analysis.'
+    });
+  };
+
+  // Re-localize / re-style recommendations on-the-fly without changing classification
+  const handleCustomize = async (targetLang = outputLanguage, targetStyle = recommendationStyle) => {
+    if (!result) return;
+    try {
+      setIsCustomizing(true);
+      const res = await customizeRecommendations({
+        scan_id: result.scan_id,
+        text: inputText,
+        language: targetLang,
+        style: targetStyle,
+        classification: result.classification,
+        risk_score: result.risk_score,
+        risk_level: result.risk_level,
+        categories: result.threat_categories,
+        target_type: result.target_type,
+        detected_language_code: result.language_code
+      });
+
+      setResult(prev => prev ? {
+        ...prev,
+        explanation: res.explanation,
+        recommended_actions: res.recommended_actions,
+        output_language: res.output_language,
+        recommendation_style: res.recommendation_style
+      } : null);
+
+      setEditableActions(res.recommended_actions);
+      setIsEditingActions(false);
+
+      addToast({
+        type: 'success',
+        title: 'Recommendations Updated',
+        message: `Localized into ${res.output_language_label} (${res.recommendation_style}). Immutability verified.`
+      });
+    } catch (err: any) {
+      addToast({
+        type: 'error',
+        title: 'Localization Error',
+        message: err.message || "Failed to update recommendations language."
+      });
+    } finally {
+      setIsCustomizing(false);
+    }
+  };
+
+  const handleOutputLanguageChange = (newLang: string) => {
+    setOutputLanguage(newLang);
+    if (result) {
+      handleCustomize(newLang, recommendationStyle);
+    }
+  };
+
+  const handleStyleChange = (newStyle: string) => {
+    setRecommendationStyle(newStyle);
+    if (result) {
+      handleCustomize(outputLanguage, newStyle);
+    }
+  };
+
+  const handleCopyRecommendations = () => {
+    if (!result || !result.recommended_actions || result.recommended_actions.length === 0) return;
+    const actionsText = result.recommended_actions
+      .map((act, i) => `${i + 1}. ${act}`)
+      .join('\n');
+    const fullText = `[BhashaShield Advisory: ${result.classification} (Risk: ${result.risk_score}/100)]\n\nExplanation:\n${result.explanation}\n\nRecommended Actions:\n${actionsText}`;
+    
+    navigator.clipboard.writeText(fullText).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+      addToast({
+        type: 'success',
+        title: 'Copied to Clipboard',
+        message: 'Security assessment debrief and actions copied.'
+      });
+    });
+  };
+
+  const handleSaveEditedActions = () => {
+    if (!result) return;
+    const filtered = editableActions.filter(a => a.trim().length > 0);
+    setResult(prev => prev ? {
+      ...prev,
+      recommended_actions: filtered
+    } : null);
+    setIsEditingActions(false);
+    addToast({
+      type: 'info',
+      title: 'Custom Actions Saved',
+      message: `${filtered.length} action item(s) preserved in active scan view.`
+    });
+  };
+
+  const handleAddCustomAction = () => {
+    if (!newActionInput.trim()) return;
+    setEditableActions(prev => [...prev, newActionInput.trim()]);
+    setNewActionInput("");
+  };
+
+  const handleRemoveAction = (index: number) => {
+    setEditableActions(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handleActionChange = (index: number, val: string) => {
+    setEditableActions(prev => {
+      const copy = [...prev];
+      copy[index] = val;
+      return copy;
     });
   };
 
@@ -194,7 +345,7 @@ export const TextGuardView: React.FC = () => {
             Enterprise Security Scanner
           </span>
           <span className="text-xs text-txt-secondary font-mono">
-            Direct Inference Engine
+            Direct Multilingual Inference
           </span>
         </div>
         <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-white flex items-center gap-3">
@@ -211,7 +362,7 @@ export const TextGuardView: React.FC = () => {
         <div className="lg:col-span-7 space-y-6">
           <div className="glass-panel rounded-2xl p-6 border border-white/10 shadow-2xl relative overflow-hidden">
             {/* Top Controls Bar */}
-            <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
+            <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
               <div className="flex items-center gap-2">
                 <label className="text-xs font-semibold text-txt-secondary uppercase tracking-wider">
                   Channel:
@@ -296,6 +447,37 @@ export const TextGuardView: React.FC = () => {
               </div>
             </div>
 
+            {/* Presentation Options Bar */}
+            <div className="mt-4 p-3 rounded-xl bg-black/30 border border-white/5 flex flex-wrap items-center justify-between gap-3 text-xs">
+              <div className="flex items-center gap-2">
+                <Globe className="w-3.5 h-3.5 text-cyan" />
+                <span className="text-txt-secondary font-semibold">Output Language:</span>
+                <select
+                  value={outputLanguage}
+                  onChange={(e) => handleOutputLanguageChange(e.target.value)}
+                  className="bg-bg-dark border border-white/10 rounded-lg px-2.5 py-1 text-xs text-txt-primary focus:outline-none focus:border-cyan"
+                >
+                  {OUTPUT_LANGUAGES.map(lang => (
+                    <option key={lang.value} value={lang.value}>{lang.label}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <Sliders className="w-3.5 h-3.5 text-[var(--theme-accent)]" />
+                <span className="text-txt-secondary font-semibold">Style:</span>
+                <select
+                  value={recommendationStyle}
+                  onChange={(e) => handleStyleChange(e.target.value)}
+                  className="bg-bg-dark border border-white/10 rounded-lg px-2.5 py-1 text-xs text-txt-primary focus:outline-none focus:border-cyan"
+                >
+                  {RECOMMENDATION_STYLES.map(st => (
+                    <option key={st.value} value={st.value}>{st.label}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
             {error && (
               <div className="mt-4 p-3 rounded-xl bg-status-coral/10 border border-status-coral/30 text-status-coral text-xs flex items-center gap-2">
                 <AlertTriangle className="w-4 h-4 flex-shrink-0" />
@@ -359,6 +541,7 @@ export const TextGuardView: React.FC = () => {
                     onClick={() => {
                       setResult(item);
                       setInputText(item.text_preview);
+                      setEditableActions(item.recommended_actions || []);
                     }}
                     className="p-3 rounded-xl bg-bg-midnight/50 hover:bg-bg-midnight border border-white/5 hover:border-cyan/30 cursor-pointer transition-all flex items-center justify-between text-xs"
                   >
@@ -373,6 +556,7 @@ export const TextGuardView: React.FC = () => {
                         item.risk_level === 'CRITICAL' ? 'bg-status-coral/20 text-status-coral' :
                         item.risk_level === 'HIGH' ? 'bg-status-amber/20 text-status-amber' :
                         item.risk_level === 'MEDIUM' ? 'bg-neon-blue/20 text-neon-blue' :
+                        item.risk_level === 'UNCERTAIN' ? 'bg-purple-500/20 text-purple-300' :
                         'bg-status-emerald/20 text-status-emerald'
                       }`}>
                         {item.risk_level} ({Math.round(item.risk_score)})
@@ -449,6 +633,11 @@ export const TextGuardView: React.FC = () => {
                             <AlertTriangle className="w-4 h-4 text-status-amber" />
                             <span>Human End-User (Phishing / Fraud)</span>
                           </>
+                        ) : result.risk_level === 'UNCERTAIN' ? (
+                          <>
+                            <HelpCircleIcon className="w-4 h-4 text-purple-400" />
+                            <span>Uncertain / Ambiguous Context</span>
+                          </>
                         ) : (
                           <>
                             <CheckCircle2 className="w-4 h-4 text-status-emerald" />
@@ -485,7 +674,13 @@ export const TextGuardView: React.FC = () => {
                       {result.threat_categories.map((cat, i) => (
                         <span
                           key={i}
-                          className="px-2.5 py-1 rounded-lg text-xs font-mono font-semibold bg-status-coral/15 text-status-coral border border-status-coral/30"
+                          className={`px-2.5 py-1 rounded-lg text-xs font-mono font-semibold border ${
+                            cat === 'BENIGN'
+                              ? 'bg-status-emerald/15 text-status-emerald border-status-emerald/30'
+                              : cat === 'UNKNOWN'
+                              ? 'bg-purple-500/15 text-purple-300 border-purple-500/30'
+                              : 'bg-status-coral/15 text-status-coral border-status-coral/30'
+                          }`}
                         >
                           {cat}
                         </span>
@@ -494,36 +689,158 @@ export const TextGuardView: React.FC = () => {
                   </div>
                 )}
 
-                {/* Technical Explanation */}
-                <div className="p-4 rounded-xl bg-black/40 border border-white/5 space-y-1">
-                  <h4 className="text-xs font-bold uppercase tracking-wider text-[var(--theme-accent)] flex items-center gap-1.5">
-                    <Sparkles className="w-3.5 h-3.5" />
-                    Security Assessment Debrief
-                  </h4>
+                {/* Decision Immutability Guarantee Badge */}
+                <div className="p-3 rounded-xl bg-cyan/10 border border-cyan/20 text-xs text-cyan flex items-start gap-2">
+                  <Lock className="w-4 h-4 text-cyan flex-shrink-0 mt-0.5" />
+                  <div>
+                    <span className="font-bold">Strict Decision Immutability:</span>
+                    <span className="text-txt-secondary block text-[11px] mt-0.5">
+                      Classification <strong className="text-white">({result.classification})</strong> and Risk Score <strong className="text-white">({Math.round(result.risk_score)}/100)</strong> are cryptographically frozen. Modifying presentation language or recommendation style never changes threat determinations.
+                    </span>
+                  </div>
+                </div>
+
+                {/* Technical Explanation with Active Language indicator */}
+                <div className="p-4 rounded-xl bg-black/40 border border-white/5 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-[var(--theme-accent)] flex items-center gap-1.5">
+                      <Sparkles className="w-3.5 h-3.5" />
+                      Security Assessment Debrief
+                    </h4>
+                    <span className="text-[10px] text-txt-muted font-mono uppercase bg-black/60 px-2 py-0.5 rounded border border-white/5">
+                      Language: {result.output_language || outputLanguage}
+                    </span>
+                  </div>
                   <p className="text-xs leading-relaxed text-white/90">
                     {result.explanation}
                   </p>
                 </div>
 
-                {/* Recommended Actions */}
-                {result.recommended_actions.length > 0 && (
-                  <div className="space-y-2">
-                    <h4 className="text-xs font-bold uppercase tracking-wider text-txt-secondary">
+                {/* Localized & Customizable Recommendations */}
+                <div className="space-y-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-txt-secondary flex items-center gap-1.5">
+                      <SlidersHorizontal className="w-3.5 h-3.5 text-cyan" />
                       Recommended Guardrail Actions
                     </h4>
+
+                    {/* Toolbar: Regenerate, Copy, Edit */}
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => handleCustomize()}
+                        disabled={isCustomizing}
+                        className="p-1.5 rounded-lg bg-bg-dark border border-white/10 hover:border-cyan/40 text-txt-secondary hover:text-cyan text-xs transition-all flex items-center gap-1"
+                        title="Regenerate recommendations in current style & language"
+                      >
+                        <RefreshCw className={`w-3.5 h-3.5 ${isCustomizing ? 'animate-spin' : ''}`} />
+                        <span className="hidden sm:inline text-[10px]">Regenerate</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={handleCopyRecommendations}
+                        className="p-1.5 rounded-lg bg-bg-dark border border-white/10 hover:border-cyan/40 text-txt-secondary hover:text-cyan text-xs transition-all flex items-center gap-1"
+                        title="Copy recommendations to clipboard"
+                      >
+                        {copied ? <Check className="w-3.5 h-3.5 text-status-emerald" /> : <Copy className="w-3.5 h-3.5" />}
+                        <span className="hidden sm:inline text-[10px]">{copied ? "Copied" : "Copy"}</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setIsEditingActions(!isEditingActions)}
+                        className={`p-1.5 rounded-lg border text-xs transition-all flex items-center gap-1 ${
+                          isEditingActions
+                            ? 'bg-cyan text-bg-midnight border-cyan font-bold'
+                            : 'bg-bg-dark border-white/10 hover:border-cyan/40 text-txt-secondary hover:text-cyan'
+                        }`}
+                        title="Edit action items or add custom directives"
+                      >
+                        <Edit3 className="w-3.5 h-3.5" />
+                        <span className="hidden sm:inline text-[10px]">{isEditingActions ? "Done" : "Edit"}</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Actions List (Normal or Edit Mode) */}
+                  {!isEditingActions ? (
                     <div className="space-y-1.5">
-                      {result.recommended_actions.map((act, i) => (
+                      {(result.recommended_actions || []).map((act, i) => (
                         <div
                           key={i}
-                          className="p-2.5 rounded-lg bg-bg-dark border border-white/5 text-xs text-txt-primary flex items-start gap-2"
+                          className="p-2.5 rounded-lg bg-bg-dark border border-white/5 text-xs text-txt-primary flex items-start gap-2 shadow-sm"
                         >
                           <ShieldAlert className="w-4 h-4 text-status-amber flex-shrink-0 mt-0.5" />
-                          <span>{act}</span>
+                          <span className="leading-relaxed">{act}</span>
                         </div>
                       ))}
                     </div>
-                  </div>
-                )}
+                  ) : (
+                    <div className="space-y-2 p-3 rounded-xl bg-black/40 border border-cyan/30">
+                      <p className="text-[11px] text-cyan font-medium">
+                        Custom Action Items Editor (Tailor guardrails for your operational context):
+                      </p>
+                      <div className="space-y-2">
+                        {editableActions.map((act, i) => (
+                          <div key={i} className="flex items-center gap-2">
+                            <span className="text-[10px] text-txt-muted font-mono w-4">{i + 1}.</span>
+                            <input
+                              type="text"
+                              value={act}
+                              onChange={(e) => handleActionChange(i, e.target.value)}
+                              className="flex-1 bg-bg-midnight border border-white/10 rounded-lg px-2.5 py-1 text-xs text-white focus:outline-none focus:border-cyan font-mono"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveAction(i)}
+                              className="p-1 rounded text-txt-muted hover:text-status-coral transition-colors"
+                              title="Delete action"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Add new action */}
+                      <div className="flex items-center gap-2 pt-2 border-t border-white/5">
+                        <input
+                          type="text"
+                          value={newActionInput}
+                          onChange={(e) => setNewActionInput(e.target.value)}
+                          placeholder="Add custom operational directive..."
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              handleAddCustomAction();
+                            }
+                          }}
+                          className="flex-1 bg-bg-midnight border border-white/10 rounded-lg px-2.5 py-1 text-xs text-white placeholder:text-white/30 focus:outline-none focus:border-cyan"
+                        />
+                        <button
+                          type="button"
+                          onClick={handleAddCustomAction}
+                          className="px-3 py-1 rounded-lg bg-white/10 hover:bg-white/20 text-xs font-semibold text-white flex items-center gap-1 transition-all"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                          Add
+                        </button>
+                      </div>
+
+                      <div className="flex justify-end gap-2 pt-2">
+                        <button
+                          type="button"
+                          onClick={handleSaveEditedActions}
+                          className="theme-button-primary px-4 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5"
+                        >
+                          <Save className="w-3.5 h-3.5" />
+                          Save Custom Actions
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
 
                 {/* Model Status & Evidence Footnote */}
                 <div className="pt-4 border-t border-white/10 flex flex-wrap items-center justify-between text-[11px] text-txt-muted font-mono gap-2">
@@ -544,7 +861,7 @@ export const TextGuardView: React.FC = () => {
                 </div>
                 <h3 className="text-lg font-bold text-white mb-1">Text Guard Ready</h3>
                 <p className="text-xs text-txt-secondary max-w-xs">
-                  Enter or select text on the left to trigger real-time multilingual prompt injection inspection.
+                  Enter or select text on the left to trigger real-time multilingual prompt injection inspection with customizable recommendations.
                 </p>
               </div>
             )}
@@ -557,3 +874,12 @@ export const TextGuardView: React.FC = () => {
     </div>
   );
 };
+
+// Internal icon fallback
+const HelpCircleIcon: React.FC<{ className?: string }> = ({ className }) => (
+  <svg className={className} width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="12" cy="12" r="10"/>
+    <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/>
+    <line x1="12" y1="17" x2="12.01" y2="17"/>
+  </svg>
+);

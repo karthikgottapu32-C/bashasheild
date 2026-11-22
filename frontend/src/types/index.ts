@@ -38,6 +38,8 @@ export interface AnalyzeRequest {
   language_hint?: string;
   channel?: InputChannel;
   save_to_history?: boolean;
+  output_language?: string;
+  recommendation_style?: string;
 }
 
 export interface AnalyzeResponse {
@@ -64,6 +66,38 @@ export interface AnalyzeResponse {
   recommended_actions: string[];
   explanation: string;
   channel: string;
+  output_language?: string;
+  recommendation_style?: string;
+  default_output_language?: string;
+  available_output_languages?: string[];
+  available_recommendation_styles?: string[];
+}
+
+export interface CustomizeRecommendationRequest {
+  scan_id?: string;
+  text?: string;
+  language: string;
+  style: string;
+  classification?: string;
+  risk_score?: number;
+  risk_level?: RiskLevel;
+  categories?: string[];
+  target_type?: string;
+  custom_recommendations?: string[];
+  detected_language_code?: string;
+}
+
+export interface CustomizeRecommendationResponse {
+  scan_id?: string;
+  output_language: string;
+  output_language_label: string;
+  recommendation_style: string;
+  explanation: string;
+  recommended_actions: string[];
+  classification: string;
+  risk_score: number;
+  risk_level: RiskLevel;
+  immutability_verified: boolean;
 }
 
 export interface ScanRecord {
@@ -103,7 +137,31 @@ export interface MetricSlice {
   samples?: number;
 }
 
+export interface FailedTestCase {
+  id: string;
+  text_preview: string;
+  language: string;
+  ground_truth: string;
+  predicted: string;
+  error_type: string;
+  risk_score: number;
+  threat_categories: string[];
+}
+
+export interface EvaluationDataset {
+  id: string;
+  name: string;
+  description: string;
+  sample_count: number;
+}
+
 export interface EvaluationMetrics {
+  dataset_name?: string;
+  dataset_file?: string;
+  clean_pass_rate?: number;
+  uncertain_samples?: number;
+  failed_cases?: FailedTestCase[];
+  available_datasets?: string[];
   precision: number;
   recall: number;
   f1_score: number;

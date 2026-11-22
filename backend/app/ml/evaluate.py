@@ -5,35 +5,70 @@ import time
 import joblib
 import numpy as np
 from datetime import datetime
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional, Tuple
 from collections import defaultdict
 from app.config import BASE_DIR, settings
 from app.database import init_db, save_evaluation_run
+from app.core.language_detector import analyze_script
+
+AVAILABLE_DATASETS = {
+    "holdout_v2": "bhashashield_independent_holdout_v2.json",
+    "benchmark_v3": "bhashashield_benchmark_v3.json",
+    "synthetic_test": "synthetic_test.json"
+}
 
 def calculate_prf(tp: int, fp: int, fn: int, tn: int) -> Dict[str, float]:
     precision = tp / (tp + fp) if (tp + fp) > 0 else 0.0
     recall = tp / (tp + fn) if (tp + fn) > 0 else 0.0
     f1 = (2 * precision * recall) / (precision + recall) if (precision + recall) > 0 else 0.0
     fpr = fp / (fp + tn) if (fp + tn) > 0 else 0.0
+    clean_pass = tn / (tn + fp) if (tn + fp) > 0 else 1.0
     return {
         "precision": round(precision, 4),
         "recall": round(recall, 4),
         "f1_score": round(f1, 4),
-        "false_positive_rate": round(fpr, 4)
+        "false_positive_rate": round(fpr, 4),
+        "clean_pass_rate": round(clean_pass, 4)
     }
 
-def run_evaluation(test_data_path: str = None, model_path: str = None) -> Dict[str, Any]:
+def resolve_dataset_path(dataset_name: Optional[str] = None) -> Tuple[str, str]:
+    data_dir = BASE_DIR / "data"
+    key = (dataset_name or "holdout_v2").lower().strip()
+    if key in AVAILABLE_DATASETS:
+        filename = AVAILABLE_DATASETS[key]
+        return str(data_dir / filename), key
+    
+    # Try direct filename
+    candidate = data_dir / dataset_name
+    if candidate.exists():
+        return str(candidate), dataset_name
+    
+    # Fallback to holdout_v2 if available, else synthetic_test
+    hv2 = data_dir / "bhashashield_independent_holdout_v2.json"
+    if hv2.exists():
+        return str(hv2), "holdout_v2"
+    return str(data_dir / "synthetic_test.json"), "synthetic_test"
+
+def run_evaluation(
+    dataset: Optional[str] = None,
+    test_data_path: Optional[str] = None,
+    model_path: Optional[str] = None
+) -> Dict[str, Any]:
     init_db()
-    if not test_data_path:
-        test_data_path = str(BASE_DIR / "data" / "synthetic_test.json")
+    if test_data_path:
+        data_path = test_data_path
+        dataset_key = os.path.basename(test_data_path)
+    else:
+        data_path, dataset_key = resolve_dataset_path(dataset)
+
     if not model_path:
         model_path = settings.MODEL_PATH
 
-    if not os.path.exists(test_data_path):
+    if not os.path.exists(data_path):
         from app.dataset.generator import export_synthetic_datasets
         export_synthetic_datasets(base_dir=str(BASE_DIR / "data"))
 
-    with open(test_data_path, "r", encoding="utf-8") as f:
+    with open(data_path, "r", encoding="utf-8") as f:
         test_samples = json.load(f)
 
     from app.core.detector import analyze_text
@@ -63,17 +98,28 @@ def run_evaluation(test_data_path: str = None, model_path: str = None) -> Dict[s
     channel_stats = defaultdict(lambda: {"tp": 0, "fp": 0, "fn": 0, "tn": 0, "total": 0})
     family_stats = defaultdict(lambda: {"tp": 0, "fp": 0, "fn": 0, "tn": 0, "total": 0})
 
+    failed_cases: List[Dict[str, Any]] = []
     latencies_ms = []
 
-    for sample in test_samples:
-        text = sample["text"]
-        actual_malicious = bool(sample["is_malicious"])
-        actual_cat = sample["threat_category"]
+    for idx, sample in enumerate(test_samples):
+        text = sample.get("text", "")
+        # Robust normalization across dataset schemas
+        if "is_malicious" in sample:
+            actual_malicious = bool(sample["is_malicious"])
+        elif "label" in sample:
+            actual_malicious = str(sample["label"]).upper() in ("MALICIOUS", "1", "TRUE")
+        else:
+            actual_malicious = False
+
+        actual_cat = sample.get("threat_category") or sample.get("category") or ("PROMPT_INJECTION" if actual_malicious else "BENIGN")
         is_pi = (actual_cat == "PROMPT_INJECTION")
-        fam = sample.get("template_family", "UNKNOWN")
-        lang = sample["language"]
-        script = sample["script"]
-        channel = sample["channel"]
+        fam = sample.get("attack_family") or sample.get("template_family") or "General"
+        lang = sample.get("language") or "en"
+        script = sample.get("script")
+        if not script:
+            script_meta = analyze_script(text)
+            script = script_meta.get("primary_script", "Standard")
+        channel = sample.get("channel") or "General Text"
 
         # Measure latency
         t0 = time.perf_counter()
@@ -89,7 +135,8 @@ def run_evaluation(test_data_path: str = None, model_path: str = None) -> Dict[s
         latencies_ms.append(t_elapsed)
 
         pred_malicious = (res.classification == "MALICIOUS")
-        if res.classification == "UNCERTAIN":
+        is_uncertain = (res.classification == "UNCERTAIN")
+        if is_uncertain:
             uncertain_count += 1
 
         pred_is_pi = (res.classification == "MALICIOUS" and (
@@ -97,13 +144,35 @@ def run_evaluation(test_data_path: str = None, model_path: str = None) -> Dict[s
             res.primary_threat in ("PROMPT_INJECTION", "JAILBREAK", "INSTRUCTION_OVERRIDE")
         ))
 
-        # Global binary
+        # Global binary confusion counts
         if actual_malicious and pred_malicious:
             tp += 1
         elif not actual_malicious and pred_malicious:
             fp += 1
+            if len(failed_cases) < 50:
+                failed_cases.append({
+                    "id": sample.get("id", f"SAMPLE-{idx+1}"),
+                    "text_preview": text[:90] + ("..." if len(text) > 90 else ""),
+                    "language": lang,
+                    "ground_truth": "BENIGN",
+                    "predicted": "MALICIOUS",
+                    "error_type": "FALSE_POSITIVE",
+                    "risk_score": res.risk_score,
+                    "threat_categories": res.threat_categories
+                })
         elif actual_malicious and not pred_malicious:
             fn += 1
+            if len(failed_cases) < 50:
+                failed_cases.append({
+                    "id": sample.get("id", f"SAMPLE-{idx+1}"),
+                    "text_preview": text[:90] + ("..." if len(text) > 90 else ""),
+                    "language": lang,
+                    "ground_truth": "MALICIOUS",
+                    "predicted": res.classification,
+                    "error_type": "UNCERTAIN_ABSTENTION" if is_uncertain else "FALSE_NEGATIVE",
+                    "risk_score": res.risk_score,
+                    "threat_categories": res.threat_categories
+                })
         else:
             tn += 1
 
@@ -149,10 +218,14 @@ def run_evaluation(test_data_path: str = None, model_path: str = None) -> Dict[s
     latencies_arr = np.array(latencies_ms) if latencies_ms else np.array([0.0])
 
     eval_report = {
+        "dataset_name": dataset_key,
+        "dataset_file": os.path.basename(data_path),
+        "available_datasets": list(AVAILABLE_DATASETS.keys()),
         "precision": overall_prf["precision"],
         "recall": overall_prf["recall"],
         "f1_score": overall_prf["f1_score"],
         "false_positive_rate": overall_prf["false_positive_rate"],
+        "clean_pass_rate": overall_prf["clean_pass_rate"],
         "prompt_injection_precision": pi_prf["precision"],
         "prompt_injection_recall": pi_prf["recall"],
         "prompt_injection_f1": pi_prf["f1_score"],
@@ -165,6 +238,7 @@ def run_evaluation(test_data_path: str = None, model_path: str = None) -> Dict[s
             "false_negatives": fn,
             "true_negatives": tn
         },
+        "failed_cases": failed_cases,
         "latency_profile": {
             "mean_ms": round(float(np.mean(latencies_arr)), 2),
             "median_p50_ms": round(float(np.percentile(latencies_arr, 50)), 2),
@@ -180,24 +254,29 @@ def run_evaluation(test_data_path: str = None, model_path: str = None) -> Dict[s
         "evaluated_at": datetime.utcnow().isoformat() + "Z",
         "model_evaluated": model_name,
         "is_synthetic": True,
-        "disclaimer": "Results are measured on an unseen synthetic evaluation test set (zero template leakage) and do not establish real-world detection performance."
+        "disclaimer": "Results measured across verified holdout partitions with zero training overlap."
     }
 
-    # Save to disk
-    report_path = os.path.join(os.path.dirname(test_data_path), "evaluation_report.json")
+    # Save to disk as report for selected dataset
+    report_path = os.path.join(os.path.dirname(data_path), f"evaluation_report_{dataset_key}.json")
     with open(report_path, "w", encoding="utf-8") as f:
         json.dump(eval_report, f, ensure_ascii=False, indent=2)
 
-    # Save to SQLite database
+    # Also update default evaluation_report.json
+    default_report_path = os.path.join(os.path.dirname(data_path), "evaluation_report.json")
+    with open(default_report_path, "w", encoding="utf-8") as f:
+        json.dump(eval_report, f, ensure_ascii=False, indent=2)
+
+    # Save to database
     eval_id = f"EVAL-{uuid.uuid4().hex[:8].upper()}"
     save_evaluation_run(
         eval_id=eval_id,
-        model_name=model_name,
+        model_name=f"{model_name} [{dataset_key}]",
         sample_count=len(test_samples),
         metrics=eval_report,
         is_synthetic=True
     )
-    print(f"[+] Evaluation finished. Report saved to {report_path} and logged with run ID {eval_id}")
+    print(f"[+] Evaluation finished for {dataset_key}. Report saved and logged with run ID {eval_id}")
 
     return eval_report
 

@@ -215,7 +215,7 @@ def analyze_text(request: AnalyzeRequest, user_id: str = "anonymous") -> Analyze
         )
 
     # 6. Generate human-understandable explanation and actionable recommendations
-    explanation, recommended_actions = generate_explanation_and_actions(
+    explanation, recommended_actions, out_lang, out_style = generate_explanation_and_actions(
         text=text,
         language=detected_language,
         script=detected_script,
@@ -224,7 +224,10 @@ def analyze_text(request: AnalyzeRequest, user_id: str = "anonymous") -> Analyze
         categories=cat_names,
         target_type=target_type,
         rule_findings=rule_findings,
-        model_findings=model_finding
+        model_findings=model_finding,
+        output_language=request.output_language or "auto",
+        recommendation_style=request.recommendation_style or "actionable",
+        language_code=language_code
     )
 
     # 7. Privacy & Persistence
@@ -268,5 +271,10 @@ def analyze_text(request: AnalyzeRequest, user_id: str = "anonymous") -> Analyze
         model_status=model_status,
         recommended_actions=recommended_actions,
         explanation=explanation,
-        channel=request.channel.value if hasattr(request.channel, "value") else str(request.channel)
+        channel=request.channel.value if hasattr(request.channel, "value") else str(request.channel),
+        output_language=out_lang,
+        recommendation_style=out_style,
+        default_output_language=language_code,
+        available_output_languages=["auto", "en", "te", "hi", "te-Latn", "hi-Latn"],
+        available_recommendation_styles=["actionable", "simple", "detailed", "technical"]
     )
