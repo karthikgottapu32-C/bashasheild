@@ -190,53 +190,71 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 
 def _sync_startup_database():
     """Synchronously initializes database within a background thread."""
+    logger.info("[STARTUP] Step 1/3: Initializing database backend and connection pooling...")
     init_postgres_pool()
     is_strict = getattr(settings, "REQUIRE_POSTGRES", False) or os.environ.get("REQUIRE_POSTGRES", "false").lower() in ("true", "1", "yes")
     if is_strict and not is_postgres_active():
         diag = get_database_status().get("connection_diagnostics", {})
         cat = diag.get("failure_category", "UNKNOWN")
         err = diag.get("last_error", "PostgreSQL pool failed to initialize")
+        logger.error(f"[STARTUP] FATAL: Strict PostgreSQL requirement active, but pool is inactive [{cat}]. Halting startup promptly.")
         raise RuntimeError(
             f"FATAL: REQUIRE_POSTGRES is true, but PostgreSQL connection is unavailable [{cat}]: {err}. "
             f"Server refusing to start with ephemeral storage in production."
         )
+    active_engine = "postgresql" if is_postgres_active() else "sqlite"
+    logger.info(f"[STARTUP] Step 2/3: Database engine active ({active_engine}). Applying idempotent schema migrations...")
     init_db()
-    try:
-        stats = get_dashboard_stats()
-        if stats.total_scans == 0:
-            seed_demo_scans()
-    except Exception as e:
-        logger.warning(f"DB startup seed warning: {e}")
+    logger.info("[STARTUP] Step 3/3: Database schema and table migrations verified.")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     startup_timeout = float(os.environ.get("STARTUP_TIMEOUT_SECONDS", "10.0"))
     is_strict = getattr(settings, "REQUIRE_POSTGRES", False) or os.environ.get("REQUIRE_POSTGRES", "false").lower() in ("true", "1", "yes")
+    target_port = os.environ.get("PORT", "10000")
+    logger.info(f"[LIFESPAN] Commencing application startup sequence (target_host=0.0.0.0, target_port={target_port}, strict_postgres={is_strict}, timeout={startup_timeout}s)...")
     loop = asyncio.get_running_loop()
     try:
         await asyncio.wait_for(loop.run_in_executor(None, _sync_startup_database), timeout=startup_timeout)
-        logger.info("Application database startup sequence successfully completed.")
+        logger.info("[LIFESPAN] Database startup sequence successfully completed.")
     except asyncio.TimeoutError:
-        safe_msg = f"Database startup sequence timed out after {startup_timeout}s."
+        safe_msg = f"[LIFESPAN] Database startup sequence timed out after {startup_timeout}s."
         logger.error(safe_msg)
         if is_strict:
             raise RuntimeError(f"FATAL: REQUIRE_POSTGRES is true, but database startup timed out after {startup_timeout}s.")
         else:
-            logger.warning(f"{safe_msg} Falling back to SQLite WAL mode to allow server to open ports.")
+            logger.warning(f"{safe_msg} Falling back to SQLite WAL mode to allow server to open ports promptly.")
             init_db()
     except Exception as e:
         if is_strict:
-            logger.error(f"FATAL: Strict PostgreSQL startup failed: {e}")
+            logger.error(f"[LIFESPAN] FATAL: Strict PostgreSQL startup failed: {e}")
             raise
         else:
-            logger.warning(f"Startup warning: {e}. Falling back to SQLite WAL mode.")
+            logger.warning(f"[LIFESPAN] Startup warning: {e}. Falling back to SQLite WAL mode.")
             init_db()
 
+    # Defer non-essential baseline data seeding to run asynchronously in background AFTER port is listening
+    def _deferred_background_init():
+        try:
+            stats = get_dashboard_stats()
+            if stats.total_scans == 0:
+                logger.info("[BACKGROUND] Empty database detected; seeding baseline demo scans in background...")
+                seed_demo_scans()
+                logger.info("[BACKGROUND] Baseline demo scans seeded.")
+        except Exception as seed_err:
+            logger.warning(f"[BACKGROUND] Background demo seed warning: {seed_err}")
+
+    loop.run_in_executor(None, _deferred_background_init)
+    logger.info(f"[LIFESPAN] Startup sequence complete. Uvicorn opening socket on 0.0.0.0:{target_port} and accepting HTTP requests.")
+
     yield
+
+    logger.info("[LIFESPAN] Commencing graceful application shutdown...")
     try:
         checkpoint_sqlite_wal()
+        logger.info("[LIFESPAN] Database WAL shutdown checkpoint completed.")
     except Exception as e:
-        logger.warning(f"DB shutdown checkpoint warning: {e}")
+        logger.warning(f"[LIFESPAN] DB shutdown checkpoint warning: {e}")
 
 app = FastAPI(
     title="BhashaShield Intelligence Engine API",

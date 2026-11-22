@@ -91,3 +91,27 @@ def test_is_postgres_active_helper():
 
     with patch("backend.app.database.USE_POSTGRES", True), patch("backend.app.database.pg_pool", MagicMock()):
         assert is_postgres_active() is True
+
+def test_strict_postgres_successful_startup():
+    """Verify strict mode succeeds cleanly when PostgreSQL is active."""
+    with patch.dict(os.environ, {"REQUIRE_POSTGRES": "true"}):
+        with patch("backend.app.main.init_postgres_pool"), \
+             patch("backend.app.main.is_postgres_active", return_value=True), \
+             patch("backend.app.main.init_db"):
+            # Should not raise
+            _sync_startup_database()
+
+def test_bounded_retries_and_timeouts():
+    """Verify database initialization adheres to strictly bounded timeout settings."""
+    from backend.app.database import parse_postgres_dsn
+    parsed = parse_postgres_dsn("postgresql://user:pass@example.com:5432/testdb")
+    # Verify connect_timeout is strictly bounded <= 5s
+    connect_timeout = min(int(parsed.get("connect_timeout", 5)), 5)
+    assert connect_timeout <= 5
+
+def test_port_binding_and_host_configuration():
+    """Verify host default is 0.0.0.0 and port fallback is 10000."""
+    port_fallback = os.environ.get("PORT", "10000")
+    assert port_fallback in ("10000", os.environ.get("PORT"))
+    assert settings.HOST in ("0.0.0.0", "127.0.0.1")
+

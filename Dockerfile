@@ -26,16 +26,16 @@ RUN mkdir -p /app/backend && \
 
 ENV PYTHONPATH="/app:/app/backend"
 ENV HOST="0.0.0.0"
-ENV PORT=8000
+ENV PORT=10000
 ENV ENVIRONMENT="production"
 ENV DATABASE_PATH="/app/data/bhashashield.db"
 ENV MODEL_PATH="/app/data/muril_classifier.joblib"
 
-EXPOSE 8000
+EXPOSE 10000
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-  CMD curl -f http://127.0.0.1:${PORT:-8000}/v1/health || exit 1
+  CMD curl -f http://127.0.0.1:${PORT:-10000}/v1/health || exit 1
 
-# Render dynamically injects $PORT (e.g. 10000). Using sh -c expands ${PORT:-8000} properly.
+# Render dynamically injects $PORT (e.g. 10000). Using sh -c expands ${PORT:-10000} properly.
 # 1 worker process consumes ~135MB RAM, safely below Render's 512MB free/starter tier limit.
-CMD ["sh", "-c", "python -m uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000} --workers 1"]
+CMD ["sh", "-c", "python -m uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-10000} --workers 1"]

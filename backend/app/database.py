@@ -277,12 +277,6 @@ def init_postgres_pool():
                 "but DATABASE_URL is not configured."
             )
 
-# Execute initial pool check safely
-try:
-    if DATABASE_URL and (DATABASE_URL.startswith("postgres://") or DATABASE_URL.startswith("postgresql://")):
-        init_postgres_pool()
-except Exception as e:
-    logger.debug(f"Module-level PostgreSQL init deferred: {e}")
 
 
 def is_postgres_active() -> bool:
