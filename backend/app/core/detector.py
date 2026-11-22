@@ -24,7 +24,7 @@ from app.core.model_service import model_service
 from app.core.explainer import generate_explanation_and_actions
 from app.database import save_scan
 
-def analyze_text(request: AnalyzeRequest) -> AnalyzeResponse:
+def analyze_text(request: AnalyzeRequest, user_id: str = "anonymous") -> AnalyzeResponse:
     text = request.text
     scan_id = f"BS-{uuid.uuid4().hex[:10].upper()}"
     timestamp = datetime.utcnow().isoformat() + "Z"
@@ -241,7 +241,8 @@ def analyze_text(request: AnalyzeRequest) -> AnalyzeResponse:
         target_type=target_type.value,
         text_preview=text_preview,
         full_text=text if save_to_hist else None,
-        save_to_history=save_to_hist
+        save_to_history=save_to_hist,
+        user_id=user_id
     )
 
     return AnalyzeResponse(

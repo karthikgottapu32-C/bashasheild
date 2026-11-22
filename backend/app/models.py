@@ -116,6 +116,29 @@ class ScanRecord(BaseModelConfig):
     target_type: str
     text_preview: str
     is_saved: bool
+    user_id: Optional[str] = "anonymous"
+
+class UserRegisterRequest(BaseModelConfig):
+    username: str = Field(..., min_length=3, max_length=64, description="Alphanumeric username")
+    email: str = Field(..., min_length=5, max_length=255, description="User email address")
+    password: str = Field(..., min_length=8, max_length=128, description="User password (min 8 characters)")
+
+class UserLoginRequest(BaseModelConfig):
+    username: str = Field(..., description="Username or email address")
+    password: str = Field(..., description="User password")
+
+class UserResponse(BaseModelConfig):
+    id: str
+    username: str
+    email: str
+    role: str
+    created_at: str
+
+class AuthResponse(BaseModelConfig):
+    access_token: str
+    token_type: str = "bearer"
+    user: UserResponse
+
 
 class DashboardStats(BaseModelConfig):
     total_scans: int

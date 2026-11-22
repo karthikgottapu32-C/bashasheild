@@ -1,4 +1,12 @@
-import { AnalyzeRequest, AnalyzeResponse, DashboardStats, ScanRecord, EvaluationMetrics } from '../types';
+import {
+  AnalyzeRequest,
+  AnalyzeResponse,
+  DashboardStats,
+  ScanRecord,
+  EvaluationMetrics,
+  UserProfile,
+  AuthResponse
+} from '../types';
 
 export function getApiBaseUrl(): string {
   if (import.meta.env.VITE_API_URL) {
@@ -35,8 +43,64 @@ export function getApiBaseUrl(): string {
   return 'https://bhashashield-api.onrender.com';
 }
 
-function getAdminHeaders(): Record<string, string> {
+export function getAuthToken(): string | null {
+  if (typeof window !== 'undefined') {
+    return localStorage.getItem('bhashashield_auth_token') || sessionStorage.getItem('bhashashield_auth_token');
+  }
+  return null;
+}
+
+export function setAuthToken(token: string | null): void {
+  if (typeof window !== 'undefined') {
+    if (token) {
+      localStorage.setItem('bhashashield_auth_token', token);
+    } else {
+      localStorage.removeItem('bhashashield_auth_token');
+      sessionStorage.removeItem('bhashashield_auth_token');
+      localStorage.removeItem('bhashashield_current_user');
+      sessionStorage.removeItem('bhashashield_current_user');
+    }
+  }
+}
+
+export function getStoredUser(): UserProfile | null {
+  if (typeof window !== 'undefined') {
+    const raw = localStorage.getItem('bhashashield_current_user') || sessionStorage.getItem('bhashashield_current_user');
+    if (raw) {
+      try {
+        return JSON.parse(raw);
+      } catch {
+        return null;
+      }
+    }
+  }
+  return null;
+}
+
+export function setStoredUser(user: UserProfile | null): void {
+  if (typeof window !== 'undefined') {
+    if (user) {
+      localStorage.setItem('bhashashield_current_user', JSON.stringify(user));
+    } else {
+      localStorage.removeItem('bhashashield_current_user');
+      sessionStorage.removeItem('bhashashield_current_user');
+    }
+  }
+}
+
+export function getAuthHeaders(): Record<string, string> {
   const headers: Record<string, string> = {};
+  const token = getAuthToken();
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+  return headers;
+}
+
+function getAdminHeaders(): Record<string, string> {
+  const headers: Record<string, string> = {
+    ...getAuthHeaders()
+  };
   if (typeof window !== 'undefined') {
     const key = localStorage.getItem('bhashashield_admin_key') || sessionStorage.getItem('bhashashield_admin_key');
     if (key) {
@@ -51,8 +115,19 @@ async function requestJson<T>(path: string, options?: RequestInit): Promise<T> {
   const url = `${baseUrl}${path}`;
   let response: Response;
 
+  const authHeaders = getAuthHeaders();
+  const mergedHeaders: Record<string, string> = {
+    ...authHeaders,
+    ...(options?.headers as Record<string, string> || {}),
+  };
+
+  const finalOptions: RequestInit = {
+    ...options,
+    headers: mergedHeaders,
+  };
+
   try {
-    response = await fetch(url, options);
+    response = await fetch(url, finalOptions);
   } catch (err: any) {
     throw new Error(
       `Failed to connect to BhashaShield API at ${url}. Please verify network connectivity and backend service status.`
@@ -124,4 +199,35 @@ export async function triggerEvaluation(): Promise<{ status: string; report: Eva
 
 export async function checkHealth(): Promise<{ status: string; model_status: string }> {
   return requestJson<{ status: string; model_status: string }>('/health');
+}
+
+export async function registerUser(username: string, password: string): Promise<AuthResponse> {
+  const data = await requestJson<AuthResponse>('/v1/auth/register', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username, password }),
+  });
+  setAuthToken(data.access_token);
+  setStoredUser(data.user);
+  return data;
+}
+
+export async function loginUser(username: string, password: string): Promise<AuthResponse> {
+  const data = await requestJson<AuthResponse>('/v1/auth/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username, password }),
+  });
+  setAuthToken(data.access_token);
+  setStoredUser(data.user);
+  return data;
+}
+
+export async function getCurrentUser(): Promise<UserProfile> {
+  return requestJson<UserProfile>('/v1/auth/me');
+}
+
+export function logoutUser(): void {
+  setAuthToken(null);
+  setStoredUser(null);
 }

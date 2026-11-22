@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.base import BaseHTTPMiddleware
-from typing import List, Optional, Dict
+from typing import List, Optional, Dict, Any
 from collections import defaultdict
 from pathlib import Path
 import os
@@ -22,7 +22,19 @@ from app.models import (
     GuardDecisionRequest,
     GuardDecisionResponse,
     PolicyDecision,
-    RiskLevel
+    RiskLevel,
+    UserRegisterRequest,
+    UserLoginRequest,
+    UserResponse,
+    AuthResponse
+)
+from app.auth import (
+    hash_password,
+    verify_password,
+    create_access_token,
+    get_optional_user,
+    get_current_user,
+    require_admin
 )
 from app.core.detector import analyze_text
 from app.core.model_service import model_service
@@ -30,6 +42,9 @@ from app.database import (
     init_db,
     checkpoint_sqlite_wal,
     get_database_status,
+    create_user,
+    get_user_by_username_or_email,
+    get_user_by_id,
     get_scans,
     get_scan_by_id,
     delete_scan,
@@ -139,12 +154,12 @@ app = FastAPI(
 app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(RateLimitMiddleware)
 
-# CORS configuration - Allow universal cross-origin requests from public frontends and SDKs
+# CORS configuration - Verified explicit allowlist (production domains in prod, local ports in dev)
 app.add_middleware(
     CORSMiddleware,
-    allow_origin_regex=r"^https?://.*",
+    allow_origins=settings.cors_origin_list,
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "DELETE", "OPTIONS", "HEAD"],
     allow_headers=["*"],
 )
 
@@ -322,54 +337,183 @@ def health_check():
         "database": db_status
     }
 
+# ==============================================================================
+# AUTHENTICATION & MULTI-USER IDENTITY ENDPOINTS
+# ==============================================================================
+
+@app.post("/v1/auth/register", response_model=AuthResponse)
+def register_endpoint(req: UserRegisterRequest):
+    clean_username = req.username.lower().strip()
+    clean_email = req.email.lower().strip()
+    if not all(c.isalnum() or c in ("_", "-") for c in clean_username) or len(clean_username) < 3:
+        raise HTTPException(status_code=400, detail="Username must be alphanumeric (allowing '_' or '-') and at least 3 characters long.")
+    if "@" not in clean_email or "." not in clean_email:
+        raise HTTPException(status_code=400, detail="Please provide a valid email address.")
+    if len(req.password) < 8:
+        raise HTTPException(status_code=400, detail="Password must be at least 8 characters long.")
+
+    existing_u = get_user_by_username_or_email(clean_username)
+    if existing_u:
+        raise HTTPException(status_code=409, detail="A user with this username already exists.")
+    existing_e = get_user_by_username_or_email(clean_email)
+    if existing_e:
+        raise HTTPException(status_code=409, detail="A user with this email address already exists.")
+
+    hashed = hash_password(req.password)
+    user = create_user(username=clean_username, email=clean_email, hashed_password=hashed)
+    token = create_access_token(user_id=user["id"], username=user["username"], role=user["role"])
+
+    return AuthResponse(
+        access_token=token,
+        token_type="bearer",
+        user=UserResponse(
+            id=user["id"],
+            username=user["username"],
+            email=user["email"],
+            role=user["role"],
+            created_at=user["created_at"]
+        )
+    )
+
+@app.post("/v1/auth/login", response_model=AuthResponse)
+def login_endpoint(req: UserLoginRequest):
+    user = get_user_by_username_or_email(req.username)
+    if not user or not verify_password(req.password, user["hashed_password"]):
+        raise HTTPException(status_code=401, detail="Invalid username or password.")
+    if not user.get("is_active", True):
+        raise HTTPException(status_code=403, detail="Account is deactivated.")
+
+    token = create_access_token(user_id=user["id"], username=user["username"], role=user["role"])
+    return AuthResponse(
+        access_token=token,
+        token_type="bearer",
+        user=UserResponse(
+            id=user["id"],
+            username=user["username"],
+            email=user["email"],
+            role=user["role"],
+            created_at=user["created_at"]
+        )
+    )
+
+@app.get("/v1/auth/me", response_model=UserResponse)
+def get_me_endpoint(current_user: Dict[str, Any] = Depends(get_current_user)):
+    user = get_user_by_id(current_user["sub"])
+    if not user:
+        raise HTTPException(status_code=404, detail="User profile not found.")
+    return UserResponse(
+        id=user["id"],
+        username=user["username"],
+        email=user["email"],
+        role=user["role"],
+        created_at=user["created_at"]
+    )
+
 @app.post("/analyze", response_model=AnalyzeResponse)
-def analyze_endpoint(request: AnalyzeRequest):
+def analyze_endpoint(request: AnalyzeRequest, current_user: Optional[Dict[str, Any]] = Depends(get_optional_user)):
     if len(request.text.strip()) == 0:
         raise HTTPException(status_code=400, detail="Input text must not be empty.")
     if len(request.text) > settings.MAX_INPUT_LENGTH:
         raise HTTPException(status_code=400, detail=f"Text exceeds maximum allowed length of {settings.MAX_INPUT_LENGTH} characters.")
 
-    return analyze_text(request)
+    user_id = current_user["sub"] if current_user else "anonymous"
+    return analyze_text(request, user_id=user_id)
 
 @app.get("/stats", response_model=DashboardStats)
-def stats_endpoint():
-    return get_dashboard_stats()
+def stats_endpoint(
+    current_user: Optional[Dict[str, Any]] = Depends(get_optional_user),
+    x_admin_key: Optional[str] = Header(None, alias="X-Admin-Key")
+):
+    is_admin = bool(settings.ADMIN_API_KEY and x_admin_key == settings.ADMIN_API_KEY) or (current_user and current_user.get("role") == "admin")
+    user_id = current_user["sub"] if current_user else None
+    return get_dashboard_stats(user_id=user_id, is_admin=is_admin)
 
 @app.get("/scans", response_model=List[ScanRecord])
 def get_scans_endpoint(
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
     query: Optional[str] = Query(None),
-    risk_level: Optional[str] = Query(None)
+    risk_level: Optional[str] = Query(None),
+    current_user: Optional[Dict[str, Any]] = Depends(get_optional_user),
+    x_admin_key: Optional[str] = Header(None, alias="X-Admin-Key")
 ):
-    return get_scans(limit=limit, offset=offset, query=query, risk_level=risk_level)
+    is_admin = bool(settings.ADMIN_API_KEY and x_admin_key == settings.ADMIN_API_KEY) or (current_user and current_user.get("role") == "admin")
+    user_id = current_user["sub"] if current_user else None
+    return get_scans(limit=limit, offset=offset, query=query, risk_level=risk_level, user_id=user_id, is_admin=is_admin)
 
 @app.get("/scans/{scan_id}", response_model=ScanRecord)
-def get_scan_by_id_endpoint(scan_id: str):
-    scan = get_scan_by_id(scan_id)
+def get_scan_by_id_endpoint(
+    scan_id: str,
+    current_user: Optional[Dict[str, Any]] = Depends(get_optional_user),
+    x_admin_key: Optional[str] = Header(None, alias="X-Admin-Key")
+):
+    is_admin = bool(settings.ADMIN_API_KEY and x_admin_key == settings.ADMIN_API_KEY) or (current_user and current_user.get("role") == "admin")
+    user_id = current_user["sub"] if current_user else None
+    scan = get_scan_by_id(scan_id, user_id=user_id, is_admin=is_admin)
     if not scan:
         raise HTTPException(status_code=404, detail="Scan record not found.")
     return scan
 
 @app.delete("/scans/{scan_id}")
-def delete_scan_by_id_endpoint(scan_id: str, _: bool = Depends(verify_admin_key)):
-    deleted = delete_scan(scan_id)
+def delete_scan_by_id_endpoint(
+    scan_id: str,
+    current_user: Optional[Dict[str, Any]] = Depends(get_optional_user),
+    x_admin_key: Optional[str] = Header(None, alias="X-Admin-Key")
+):
+    is_admin = bool(settings.ADMIN_API_KEY and x_admin_key == settings.ADMIN_API_KEY) or (current_user and current_user.get("role") == "admin")
+    user_id = current_user["sub"] if current_user else None
+    if not is_admin and not user_id:
+        raise HTTPException(status_code=401, detail="Authentication required to delete scan records.")
+    deleted = delete_scan(scan_id, user_id=user_id, is_admin=is_admin)
     if not deleted:
-        raise HTTPException(status_code=404, detail="Scan record not found.")
+        raise HTTPException(status_code=404, detail="Scan record not found or not authorized to delete.")
     return {"status": "success", "message": f"Scan {scan_id} deleted."}
 
 @app.delete("/scans")
-def clear_scans_endpoint(_: bool = Depends(verify_admin_key)):
-    count = clear_scans()
+def clear_scans_endpoint(
+    current_user: Optional[Dict[str, Any]] = Depends(get_optional_user),
+    x_admin_key: Optional[str] = Header(None, alias="X-Admin-Key")
+):
+    is_admin = bool(settings.ADMIN_API_KEY and x_admin_key == settings.ADMIN_API_KEY) or (current_user and current_user.get("role") == "admin")
+    user_id = current_user["sub"] if current_user else None
+    if not is_admin and not user_id:
+        raise HTTPException(status_code=401, detail="Authentication required to clear scan history.")
+    count = clear_scans(user_id=user_id, is_admin=is_admin)
     return {"status": "success", "cleared_records": count, "message": "Scan history cleared."}
 
-@app.delete("/v1/scans")
-def v1_clear_scans_endpoint(_: bool = Depends(verify_admin_key)):
-    return clear_scans_endpoint(_)
+@app.get("/v1/scans", response_model=List[ScanRecord])
+def v1_get_scans_endpoint(
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
+    query: Optional[str] = Query(None),
+    risk_level: Optional[str] = Query(None),
+    current_user: Optional[Dict[str, Any]] = Depends(get_optional_user),
+    x_admin_key: Optional[str] = Header(None, alias="X-Admin-Key")
+):
+    return get_scans_endpoint(limit=limit, offset=offset, query=query, risk_level=risk_level, current_user=current_user, x_admin_key=x_admin_key)
+
+@app.get("/v1/scans/{scan_id}", response_model=ScanRecord)
+def v1_get_scan_by_id_endpoint(
+    scan_id: str,
+    current_user: Optional[Dict[str, Any]] = Depends(get_optional_user),
+    x_admin_key: Optional[str] = Header(None, alias="X-Admin-Key")
+):
+    return get_scan_by_id_endpoint(scan_id, current_user=current_user, x_admin_key=x_admin_key)
 
 @app.delete("/v1/scans/{scan_id}")
-def v1_delete_scan_by_id_endpoint(scan_id: str, _: bool = Depends(verify_admin_key)):
-    return delete_scan_by_id_endpoint(scan_id, _)
+def v1_delete_scan_by_id_endpoint(
+    scan_id: str,
+    current_user: Optional[Dict[str, Any]] = Depends(get_optional_user),
+    x_admin_key: Optional[str] = Header(None, alias="X-Admin-Key")
+):
+    return delete_scan_by_id_endpoint(scan_id, current_user=current_user, x_admin_key=x_admin_key)
+
+@app.delete("/v1/scans")
+def v1_clear_scans_endpoint(
+    current_user: Optional[Dict[str, Any]] = Depends(get_optional_user),
+    x_admin_key: Optional[str] = Header(None, alias="X-Admin-Key")
+):
+    return clear_scans_endpoint(current_user=current_user, x_admin_key=x_admin_key)
 
 @app.get("/evaluation/report")
 def evaluation_report_endpoint():
@@ -415,7 +559,7 @@ def v1_health_endpoint():
     }
 
 @app.post("/v1/analyze", response_model=AnalyzeResponse)
-def v1_analyze_endpoint(request: AnalyzeRequest):
+def v1_analyze_endpoint(request: AnalyzeRequest, current_user: Optional[Dict[str, Any]] = Depends(get_optional_user)):
     """
     V1 Full Threat Analysis: normalizes input, runs regex rule catalog,
     computes ML statistical classification, and maps character offsets.
@@ -425,7 +569,8 @@ def v1_analyze_endpoint(request: AnalyzeRequest):
     if len(request.text) > settings.MAX_INPUT_LENGTH:
         raise HTTPException(status_code=400, detail=f"Text exceeds maximum allowed length of {settings.MAX_INPUT_LENGTH} characters.")
 
-    return analyze_text(request)
+    user_id = current_user["sub"] if current_user else "anonymous"
+    return analyze_text(request, user_id=user_id)
 
 @app.post("/v1/decision", response_model=GuardDecisionResponse)
 def v1_guard_decision_endpoint(request: GuardDecisionRequest):

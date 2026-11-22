@@ -90,6 +90,11 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
   useEffect(() => {
     loadData();
+    const handleAuthChange = () => {
+      loadData();
+    };
+    window.addEventListener('bhashashield:auth-change', handleAuthChange);
+    return () => window.removeEventListener('bhashashield:auth-change', handleAuthChange);
   }, []);
 
   const handleClearHistory = async () => {

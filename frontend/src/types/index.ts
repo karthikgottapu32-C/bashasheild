@@ -127,3 +127,16 @@ export interface EvaluationMetrics {
   is_synthetic: boolean;
   disclaimer: string;
 }
+
+export interface UserProfile {
+  id: string;
+  username: string;
+  role: string;
+  created_at: string;
+}
+
+export interface AuthResponse {
+  access_token: string;
+  token_type: string;
+  user: UserProfile;
+}

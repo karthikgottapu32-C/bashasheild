@@ -1,7 +1,29 @@
 import React, { useState, useEffect } from 'react';
-import { ShieldAlert, Menu, X, ArrowRight, Terminal, LayoutDashboard, Award, Home } from 'lucide-react';
+import {
+  ShieldAlert,
+  Menu,
+  X,
+  ArrowRight,
+  Terminal,
+  LayoutDashboard,
+  Award,
+  Home,
+  User,
+  LogOut,
+  Lock,
+  Loader2
+} from 'lucide-react';
 import { ColorPaletteSelector } from '../theme/ColorPaletteSelector';
 import { ViewRoute } from './CinematicFragmentationTransition';
+import {
+  getStoredUser,
+  setStoredUser,
+  getCurrentUser,
+  loginUser,
+  registerUser,
+  logoutUser
+} from '../services/api';
+import { UserProfile } from '../types';
 
 interface NavbarProps {
   currentView: ViewRoute;
@@ -11,20 +33,76 @@ interface NavbarProps {
 export const Navbar: React.FC<NavbarProps> = ({ currentView, onNavigate }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  // Close mobile menu on Escape key
+  // Authentication State
+  const [user, setUser] = useState<UserProfile | null>(() => getStoredUser());
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [authModalOpen, setAuthModalOpen] = useState(false);
+  const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
+  const [authUsername, setAuthUsername] = useState('');
+  const [authPassword, setAuthPassword] = useState('');
+  const [authLoading, setAuthLoading] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
+
+  // Sync current user on mount if token exists
+  useEffect(() => {
+    getCurrentUser()
+      .then((profile) => {
+        setUser(profile);
+        setStoredUser(profile);
+      })
+      .catch(() => {
+        // If token expired or invalid, keep stored or reset
+      });
+  }, []);
+
+  // Close menus/modals on Escape key
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && mobileMenuOpen) {
-        setMobileMenuOpen(false);
+      if (e.key === 'Escape') {
+        if (authModalOpen) setAuthModalOpen(false);
+        if (userMenuOpen) setUserMenuOpen(false);
+        if (mobileMenuOpen) setMobileMenuOpen(false);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [mobileMenuOpen]);
+  }, [authModalOpen, userMenuOpen, mobileMenuOpen]);
 
   const handleNav = (view: ViewRoute) => {
     onNavigate(view);
     setMobileMenuOpen(false);
+  };
+
+  const handleAuthSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAuthLoading(true);
+    setAuthError(null);
+
+    try {
+      if (authMode === 'login') {
+        const res = await loginUser(authUsername, authPassword);
+        setUser(res.user);
+      } else {
+        const res = await registerUser(authUsername, authPassword);
+        setUser(res.user);
+      }
+      setAuthModalOpen(false);
+      setAuthUsername('');
+      setAuthPassword('');
+      // Dispatch custom event so dashboard/scans reload
+      window.dispatchEvent(new CustomEvent('bhashashield:auth-change'));
+    } catch (err: any) {
+      setAuthError(err.message || 'Authentication failed. Please verify credentials.');
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  const handleLogout = () => {
+    logoutUser();
+    setUser(null);
+    setUserMenuOpen(false);
+    window.dispatchEvent(new CustomEvent('bhashashield:auth-change'));
   };
 
   return (
@@ -110,8 +188,55 @@ export const Navbar: React.FC<NavbarProps> = ({ currentView, onNavigate }) => {
           </button>
         </nav>
 
-        {/* Right Section: Color Grading Studio Trigger + CTA Button */}
-        <div className="hidden md:flex items-center gap-3.5">
+        {/* Right Section: Auth Pill + Color Grading Studio Trigger + CTA Button */}
+        <div className="hidden md:flex items-center gap-3">
+          {/* User Auth Pill / Menu */}
+          {user ? (
+            <div className="relative">
+              <button
+                onClick={() => setUserMenuOpen(!userMenuOpen)}
+                className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/5 border border-white/10 hover:border-[var(--theme-accent)]/50 text-xs font-mono font-medium text-white transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--theme-accent)]"
+                aria-expanded={userMenuOpen}
+                aria-haspopup="true"
+                aria-label={`User menu for ${user.username}`}
+              >
+                <div className="w-2 h-2 rounded-full bg-[var(--theme-accent)] animate-pulse" />
+                <span className="font-bold text-[var(--theme-accent)]">{user.username}</span>
+                <span className="text-[10px] text-white/50 uppercase">({user.role})</span>
+              </button>
+
+              {userMenuOpen && (
+                <div className="absolute right-0 mt-2 w-52 glass-panel border border-white/15 rounded-xl p-3 shadow-2xl z-50 animate-fadeIn space-y-2">
+                  <div className="text-[11px] font-mono text-white/60 pb-2 border-b border-white/10">
+                    <div className="text-white font-bold truncate">{user.username}</div>
+                    <div className="text-[9px] text-[var(--theme-accent)] uppercase">Role: {user.role}</div>
+                    <div className="text-[9px] text-white/40 truncate">ID: {user.id.slice(0, 8)}...</div>
+                  </div>
+                  <button
+                    onClick={handleLogout}
+                    className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-red-400 hover:bg-red-500/10 hover:text-red-300 transition-all text-left"
+                  >
+                    <LogOut className="w-3.5 h-3.5" />
+                    <span>Sign Out</span>
+                  </button>
+                </div>
+              )}
+            </div>
+          ) : (
+            <button
+              onClick={() => {
+                setAuthModalOpen(true);
+                setAuthMode('login');
+                setAuthError(null);
+              }}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/5 border border-white/10 hover:border-[var(--theme-accent)]/50 text-xs font-semibold text-white/80 hover:text-white transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--theme-accent)]"
+              aria-label="Sign In or Register"
+            >
+              <User className="w-3.5 h-3.5 text-[var(--theme-accent)]" />
+              <span>Sign In</span>
+            </button>
+          )}
+
           {/* Interactive 60/30/10 Theme Selector */}
           <ColorPaletteSelector />
 
@@ -199,6 +324,38 @@ export const Navbar: React.FC<NavbarProps> = ({ currentView, onNavigate }) => {
             <span>Evaluation & Benchmark Metrics</span>
           </button>
 
+          {/* Mobile Auth Button */}
+          <div className="pt-2 border-t border-white/10">
+            {user ? (
+              <div className="p-3 rounded-xl bg-white/5 border border-white/10 space-y-2">
+                <div className="flex items-center justify-between text-xs font-mono">
+                  <span className="text-white font-bold">{user.username}</span>
+                  <span className="text-[10px] text-[var(--theme-accent)] uppercase">{user.role}</span>
+                </div>
+                <button
+                  onClick={handleLogout}
+                  className="w-full flex items-center justify-center gap-2 py-2 rounded-lg text-xs font-semibold text-red-400 bg-red-500/10 hover:bg-red-500/20 transition-all"
+                >
+                  <LogOut className="w-3.5 h-3.5" />
+                  <span>Sign Out</span>
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  setAuthModalOpen(true);
+                  setAuthMode('login');
+                  setAuthError(null);
+                }}
+                className="w-full py-2.5 rounded-xl bg-white/5 border border-white/10 hover:border-[var(--theme-accent)]/50 text-xs font-semibold text-white flex items-center justify-center gap-2"
+              >
+                <User className="w-3.5 h-3.5 text-[var(--theme-accent)]" />
+                <span>Sign In / Register</span>
+              </button>
+            )}
+          </div>
+
           <div className="pt-3 border-t border-white/10 mt-2">
             <button
               onClick={() => handleNav('textguard')}
@@ -209,6 +366,133 @@ export const Navbar: React.FC<NavbarProps> = ({ currentView, onNavigate }) => {
             </button>
           </div>
         </nav>
+      )}
+
+      {/* Auth Modal */}
+      {authModalOpen && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="auth-modal-title"
+          className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setAuthModalOpen(false);
+          }}
+        >
+          <div className="glass-panel border border-white/20 rounded-2xl max-w-md w-full p-6 shadow-2xl relative animate-fadeIn text-white">
+            <button
+              onClick={() => setAuthModalOpen(false)}
+              className="absolute top-4 right-4 p-1.5 text-white/50 hover:text-white rounded-lg hover:bg-white/10 transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--theme-accent)]"
+              aria-label="Close authentication modal"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="flex items-center gap-2.5 mb-5">
+              <div className="w-9 h-9 rounded-xl bg-[var(--theme-accent)]/20 border border-[var(--theme-accent)]/40 flex items-center justify-center text-[var(--theme-accent)]">
+                <Lock className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 id="auth-modal-title" className="text-base font-bold text-white">
+                  {authMode === 'login' ? 'Sign In to BhashaShield' : 'Create BhashaShield Account'}
+                </h3>
+                <p className="text-xs text-white/50 font-mono">
+                  {authMode === 'login'
+                    ? 'Access your private scan history & isolated intelligence'
+                    : 'Isolated scans, threat telemetry & persistent audit logs'}
+                </p>
+              </div>
+            </div>
+
+            {/* Mode Switcher Tabs */}
+            <div className="grid grid-cols-2 p-1 bg-white/5 rounded-xl border border-white/10 mb-4 text-xs font-semibold">
+              <button
+                type="button"
+                onClick={() => { setAuthMode('login'); setAuthError(null); }}
+                className={`py-2 rounded-lg transition-all ${
+                  authMode === 'login'
+                    ? 'bg-[var(--theme-accent)] text-[#0A0F1D] font-bold shadow-md'
+                    : 'text-white/70 hover:text-white'
+                }`}
+              >
+                Sign In
+              </button>
+              <button
+                type="button"
+                onClick={() => { setAuthMode('register'); setAuthError(null); }}
+                className={`py-2 rounded-lg transition-all ${
+                  authMode === 'register'
+                    ? 'bg-[var(--theme-accent)] text-[#0A0F1D] font-bold shadow-md'
+                    : 'text-white/70 hover:text-white'
+                }`}
+              >
+                Register
+              </button>
+            </div>
+
+            {authError && (
+              <div
+                role="alert"
+                className="mb-4 p-3 rounded-xl bg-red-500/15 border border-red-500/30 text-red-300 text-xs flex items-start gap-2"
+              >
+                <div className="w-1.5 h-1.5 rounded-full bg-red-400 mt-1.5 shrink-0" />
+                <span>{authError}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleAuthSubmit} className="space-y-4">
+              <div>
+                <label className="block text-xs font-mono font-medium text-white/70 mb-1">
+                  Username
+                </label>
+                <input
+                  type="text"
+                  required
+                  autoFocus
+                  value={authUsername}
+                  onChange={(e) => setAuthUsername(e.target.value)}
+                  placeholder="e.g. security_lead"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-white/5 border border-white/15 focus:border-[var(--theme-accent)] text-sm text-white placeholder-white/30 focus:outline-none focus:ring-1 focus:ring-[var(--theme-accent)] font-mono transition-all"
+                />
+                <span className="text-[10px] text-white/40 font-mono mt-0.5 block">
+                  Alphanumeric, underscore or dash (min 3 chars)
+                </span>
+              </div>
+
+              <div>
+                <label className="block text-xs font-mono font-medium text-white/70 mb-1">
+                  Password
+                </label>
+                <input
+                  type="password"
+                  required
+                  value={authPassword}
+                  onChange={(e) => setAuthPassword(e.target.value)}
+                  placeholder="••••••••••••"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-white/5 border border-white/15 focus:border-[var(--theme-accent)] text-sm text-white placeholder-white/30 focus:outline-none focus:ring-1 focus:ring-[var(--theme-accent)] font-mono transition-all"
+                />
+                <span className="text-[10px] text-white/40 font-mono mt-0.5 block">
+                  Minimum 8 characters
+                </span>
+              </div>
+
+              <button
+                type="submit"
+                disabled={authLoading}
+                className="w-full theme-button-primary py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 mt-2 disabled:opacity-50"
+              >
+                {authLoading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Processing...</span>
+                  </>
+                ) : (
+                  <span>{authMode === 'login' ? 'Sign In' : 'Create Account'}</span>
+                )}
+              </button>
+            </form>
+          </div>
+        </div>
       )}
     </header>
   );
