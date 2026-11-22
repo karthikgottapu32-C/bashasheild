@@ -4,21 +4,25 @@ import requests
 
 PROD_URL = "https://bhashashield-api.onrender.com"
 
-def wait_for_deployment(max_wait_seconds=180, poll_interval=10):
-    print(f"Polling {PROD_URL}/v1/health for deployment update...")
+def wait_for_deployment(max_wait_seconds=240, poll_interval=10):
+    print(f"Polling {PROD_URL} for commit 769b39a rollout...")
     start_time = time.time()
-    last_commit = None
 
     while time.time() - start_time < max_wait_seconds:
         try:
             r = requests.get(f"{PROD_URL}/v1/health", timeout=10)
             if r.status_code == 200:
                 data = r.json()
-                print(f"[{int(time.time() - start_time)}s] Health response: status={data.get('status')}, backend={data.get('database', {}).get('backend')}, db_url={data.get('database', {}).get('database_url_configured')}")
-                # Check if auth endpoint exists (which confirms new code is deployed)
-                test_auth = requests.get(f"{PROD_URL}/v1/auth/me", timeout=5)
-                if test_auth.status_code in (401, 403):
-                    print("--> New deployment is LIVE (auth endpoints active)!")
+                # Test registration without email to confirm commit 769b39a is deployed
+                probe_user = f"prb_{int(time.time())}"
+                r_probe = requests.post(
+                    f"{PROD_URL}/v1/auth/register",
+                    json={"username": probe_user, "password": "ProbePassword123!"},
+                    timeout=5
+                )
+                print(f"[{int(time.time() - start_time)}s] Probe register without email: status={r_probe.status_code}")
+                if r_probe.status_code == 200:
+                    print("--> New deployment (commit 769b39a) is LIVE!")
                     return data
             else:
                 print(f"[{int(time.time() - start_time)}s] Health returned {r.status_code}")
@@ -166,8 +170,8 @@ def run_live_tests():
 
     # 6. Frontend HTML & Asset Bundle Verification
     print("\n[6] FRONTEND ASSET & SPA SERVING:")
-    r_front = requests.get(PROD_URL, timeout=10)
-    print(f"  GET /: Status={r_front.status_code}")
+    r_front = requests.get(PROD_URL, headers={"Accept": "text/html"}, timeout=10)
+    print(f"  GET / (Accept: text/html): Status={r_front.status_code}")
     print(f"    Contains BhashaShield Title: {'BhashaShield' in r_front.text}")
     print(f"    Contains Modern JS Bundle: {'index-DPl701e1.js' in r_front.text}")
 
