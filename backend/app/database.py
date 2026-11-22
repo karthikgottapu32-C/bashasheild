@@ -189,7 +189,7 @@ def init_postgres_pool():
                 "dbname": parsed["dbname"],
                 "sslmode": parsed.get("sslmode", "require"),
                 "connect_timeout": min(int(parsed.get("connect_timeout", 5)), 5),
-                "options": "-c statement_timeout=5000 -c lock_timeout=5000 -c idle_in_transaction_session_timeout=5000",
+                "options": "-c statement_timeout=10000 -c lock_timeout=5000",
                 "keepalives": 1,
                 "keepalives_idle": 5,
                 "keepalives_interval": 2,
@@ -290,6 +290,46 @@ def is_postgres_active() -> bool:
     return bool(USE_POSTGRES and pg_pool is not None)
 
 
+def _get_pg_conn():
+    """Gets a healthy, autocommit connection from the pool, replacing dead connections if needed."""
+    if not pg_pool:
+        raise RuntimeError("PostgreSQL connection pool is not initialized.")
+    conn = pg_pool.getconn()
+    try:
+        if conn.closed:
+            try:
+                pg_pool.putconn(conn, close=True)
+            except Exception:
+                pass
+            conn = pg_pool.getconn()
+        conn.autocommit = True
+        with conn.cursor() as cur:
+            cur.execute("SELECT 1;")
+    except Exception:
+        try:
+            pg_pool.putconn(conn, close=True)
+        except Exception:
+            pass
+        conn = pg_pool.getconn()
+        conn.autocommit = True
+    return conn
+
+
+def _put_pg_conn(conn):
+    """Safely returns connection to pool after rolling back any open transaction state."""
+    if pg_pool and conn:
+        try:
+            if not conn.closed:
+                conn.rollback()
+                conn.autocommit = True
+            pg_pool.putconn(conn)
+        except Exception:
+            try:
+                pg_pool.putconn(conn, close=True)
+            except Exception:
+                pass
+
+
 def get_sqlite_connection():
     db_path = settings.DATABASE_PATH
     os.makedirs(os.path.dirname(db_path), exist_ok=True)
@@ -335,7 +375,7 @@ def get_database_status() -> Dict[str, Any]:
     if USE_POSTGRES and pg_pool:
         conn = None
         try:
-            conn = pg_pool.getconn()
+            conn = _get_pg_conn()
             with conn.cursor() as cur:
                 cur.execute("SELECT COUNT(*) FROM scans;")
                 total_scans = cur.fetchone()[0]
@@ -361,7 +401,7 @@ def get_database_status() -> Dict[str, Any]:
         finally:
             if conn and pg_pool:
                 try:
-                    pg_pool.putconn(conn)
+                    _put_pg_conn(conn)
                 except Exception:
                     pass
     else:
@@ -417,7 +457,7 @@ def backup_sqlite_db(backup_dest: Optional[str] = None) -> Optional[str]:
 def init_db():
     """Initializes tables, indexes, and schema migrations idempotently."""
     if USE_POSTGRES and pg_pool:
-        conn = pg_pool.getconn()
+        conn = _get_pg_conn()
         try:
             with conn.cursor() as cursor:
                 # Bounded timeouts for DDL migrations to avoid hanging startup
@@ -502,7 +542,7 @@ def init_db():
                 conn.commit()
                 logger.info("PostgreSQL database tables and migrations initialized.")
         finally:
-            pg_pool.putconn(conn)
+            _put_pg_conn(conn)
     else:
         conn = get_sqlite_connection()
         cursor = conn.cursor()
@@ -599,7 +639,7 @@ def create_user(username: str, email: str, hashed_password: str, role: str = "us
     clean_email = email.lower().strip()
 
     if USE_POSTGRES and pg_pool:
-        conn = pg_pool.getconn()
+        conn = _get_pg_conn()
         try:
             with conn.cursor() as cursor:
                 cursor.execute("""
@@ -608,7 +648,7 @@ def create_user(username: str, email: str, hashed_password: str, role: str = "us
                 """, (user_id, clean_username, clean_email, hashed_password, role, created_at, True))
                 conn.commit()
         finally:
-            pg_pool.putconn(conn)
+            _put_pg_conn(conn)
     else:
         conn = get_sqlite_connection()
         try:
@@ -634,7 +674,7 @@ def get_user_by_username_or_email(identifier: str) -> Optional[Dict[str, Any]]:
     clean = identifier.lower().strip()
     if USE_POSTGRES and pg_pool:
         import psycopg2.extras
-        conn = pg_pool.getconn()
+        conn = _get_pg_conn()
         try:
             with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cursor:
                 cursor.execute("""
@@ -646,7 +686,7 @@ def get_user_by_username_or_email(identifier: str) -> Optional[Dict[str, Any]]:
                 row = cursor.fetchone()
                 return dict(row) if row else None
         finally:
-            pg_pool.putconn(conn)
+            _put_pg_conn(conn)
     else:
         conn = get_sqlite_connection()
         try:
@@ -676,7 +716,7 @@ def get_user_by_username_or_email(identifier: str) -> Optional[Dict[str, Any]]:
 def get_user_by_id(user_id: str) -> Optional[Dict[str, Any]]:
     if USE_POSTGRES and pg_pool:
         import psycopg2.extras
-        conn = pg_pool.getconn()
+        conn = _get_pg_conn()
         try:
             with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cursor:
                 cursor.execute("""
@@ -688,7 +728,7 @@ def get_user_by_id(user_id: str) -> Optional[Dict[str, Any]]:
                 row = cursor.fetchone()
                 return dict(row) if row else None
         finally:
-            pg_pool.putconn(conn)
+            _put_pg_conn(conn)
     else:
         conn = get_sqlite_connection()
         try:
@@ -717,14 +757,14 @@ def get_user_by_id(user_id: str) -> Optional[Dict[str, Any]]:
 def update_user_password(user_id: str, new_hashed_password: str) -> bool:
     """Updates stored password hash upon successful login and rehash requirement."""
     if USE_POSTGRES and pg_pool:
-        conn = pg_pool.getconn()
+        conn = _get_pg_conn()
         try:
             with conn.cursor() as cur:
                 cur.execute("UPDATE users SET hashed_password = %s WHERE id = %s", (new_hashed_password, user_id))
             conn.commit()
             return True
         finally:
-            pg_pool.putconn(conn)
+            _put_pg_conn(conn)
     else:
         conn = get_sqlite_connection()
         try:
@@ -740,7 +780,7 @@ def revoke_token(jti: str, exp: int) -> bool:
     now_str = datetime.utcnow().isoformat() + "Z"
     now_ts = int(time.time())
     if USE_POSTGRES and pg_pool:
-        conn = pg_pool.getconn()
+        conn = _get_pg_conn()
         try:
             with conn.cursor() as cur:
                 cur.execute("DELETE FROM revoked_tokens WHERE exp < %s", (now_ts,))
@@ -752,7 +792,7 @@ def revoke_token(jti: str, exp: int) -> bool:
             conn.commit()
             return True
         finally:
-            pg_pool.putconn(conn)
+            _put_pg_conn(conn)
     else:
         conn = get_sqlite_connection()
         try:
@@ -772,13 +812,13 @@ def is_token_revoked(jti: str) -> bool:
     if not jti:
         return False
     if USE_POSTGRES and pg_pool:
-        conn = pg_pool.getconn()
+        conn = _get_pg_conn()
         try:
             with conn.cursor() as cur:
                 cur.execute("SELECT 1 FROM revoked_tokens WHERE jti = %s LIMIT 1", (jti,))
                 return cur.fetchone() is not None
         finally:
-            pg_pool.putconn(conn)
+            _put_pg_conn(conn)
     else:
         conn = get_sqlite_connection()
         try:
@@ -829,7 +869,7 @@ def save_scan(
         return record
 
     if USE_POSTGRES and pg_pool:
-        conn = pg_pool.getconn()
+        conn = _get_pg_conn()
         try:
             with conn.cursor() as cursor:
                 cursor.execute("""
@@ -854,7 +894,7 @@ def save_scan(
                 ))
                 conn.commit()
         finally:
-            pg_pool.putconn(conn)
+            _put_pg_conn(conn)
     else:
         conn = get_sqlite_connection()
         cursor = conn.cursor()
@@ -931,13 +971,13 @@ def get_scans(
         """
         params.extend([limit, offset])
 
-        conn = pg_pool.getconn()
+        conn = _get_pg_conn()
         try:
             with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cursor:
                 cursor.execute(sql, tuple(params))
                 rows = cursor.fetchall()
         finally:
-            pg_pool.putconn(conn)
+            _put_pg_conn(conn)
     else:
         if query:
             conditions.append("(text_preview LIKE ? OR id LIKE ? OR channel LIKE ?)")
@@ -994,7 +1034,7 @@ def get_scan_by_id(scan_id: str, user_id: Optional[str] = None, is_admin: bool =
     """Retrieves a single scan, enforcing ownership verification."""
     if USE_POSTGRES and pg_pool:
         import psycopg2.extras
-        conn = pg_pool.getconn()
+        conn = _get_pg_conn()
         try:
             with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cursor:
                 cursor.execute("""
@@ -1003,7 +1043,7 @@ def get_scan_by_id(scan_id: str, user_id: Optional[str] = None, is_admin: bool =
                 """, (scan_id,))
                 r = cursor.fetchone()
         finally:
-            pg_pool.putconn(conn)
+            _put_pg_conn(conn)
     else:
         conn = get_sqlite_connection()
         cursor = conn.cursor()
@@ -1061,7 +1101,7 @@ def delete_scan(scan_id: str, user_id: Optional[str] = None, is_admin: bool = Fa
         params = (scan_id,)
 
     if USE_POSTGRES and pg_pool:
-        conn = pg_pool.getconn()
+        conn = _get_pg_conn()
         try:
             with conn.cursor() as cursor:
                 cursor.execute(sql_pg, params)
@@ -1069,7 +1109,7 @@ def delete_scan(scan_id: str, user_id: Optional[str] = None, is_admin: bool = Fa
                 conn.commit()
                 return deleted
         finally:
-            pg_pool.putconn(conn)
+            _put_pg_conn(conn)
     else:
         conn = get_sqlite_connection()
         cursor = conn.cursor()
@@ -1092,7 +1132,7 @@ def clear_scans(user_id: Optional[str] = None, is_admin: bool = False) -> int:
         params = ()
 
     if USE_POSTGRES and pg_pool:
-        conn = pg_pool.getconn()
+        conn = _get_pg_conn()
         try:
             with conn.cursor() as cursor:
                 cursor.execute(sql_pg, params)
@@ -1100,7 +1140,7 @@ def clear_scans(user_id: Optional[str] = None, is_admin: bool = False) -> int:
                 conn.commit()
                 return count
         finally:
-            pg_pool.putconn(conn)
+            _put_pg_conn(conn)
     else:
         conn = get_sqlite_connection()
         cursor = conn.cursor()
@@ -1130,7 +1170,7 @@ def get_dashboard_stats(user_id: Optional[str] = None, is_admin: bool = False) -
 
     if USE_POSTGRES and pg_pool:
         import psycopg2.extras
-        conn = pg_pool.getconn()
+        conn = _get_pg_conn()
         try:
             with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cursor:
                 cursor.execute(f"SELECT COUNT(*) as cnt FROM scans {where_clause}", tuple(params))
@@ -1196,7 +1236,7 @@ def get_dashboard_stats(user_id: Optional[str] = None, is_admin: bool = False) -
                 """, tuple(params))
                 recent_rows = cursor.fetchall()
         finally:
-            pg_pool.putconn(conn)
+            _put_pg_conn(conn)
     else:
         conn = get_sqlite_connection()
         cursor = conn.cursor()
@@ -1306,7 +1346,7 @@ def get_dashboard_stats(user_id: Optional[str] = None, is_admin: bool = False) -
 
 def save_evaluation_run(eval_id: str, model_name: str, sample_count: int, metrics: dict, is_synthetic: bool = True):
     if USE_POSTGRES and pg_pool:
-        conn = pg_pool.getconn()
+        conn = _get_pg_conn()
         try:
             with conn.cursor() as cursor:
                 cursor.execute("""
@@ -1323,7 +1363,7 @@ def save_evaluation_run(eval_id: str, model_name: str, sample_count: int, metric
                 ))
                 conn.commit()
         finally:
-            pg_pool.putconn(conn)
+            _put_pg_conn(conn)
     else:
         conn = get_sqlite_connection()
         cursor = conn.cursor()
@@ -1345,7 +1385,7 @@ def save_evaluation_run(eval_id: str, model_name: str, sample_count: int, metric
 def get_latest_evaluation() -> Optional[Dict[str, Any]]:
     if USE_POSTGRES and pg_pool:
         import psycopg2.extras
-        conn = pg_pool.getconn()
+        conn = _get_pg_conn()
         try:
             with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cursor:
                 cursor.execute("""
@@ -1356,7 +1396,7 @@ def get_latest_evaluation() -> Optional[Dict[str, Any]]:
                 """)
                 row = cursor.fetchone()
         finally:
-            pg_pool.putconn(conn)
+            _put_pg_conn(conn)
     else:
         conn = get_sqlite_connection()
         cursor = conn.cursor()

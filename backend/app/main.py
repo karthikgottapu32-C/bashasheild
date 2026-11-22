@@ -552,6 +552,7 @@ def analyze_endpoint(request: AnalyzeRequest, current_user: Optional[Dict[str, A
     return analyze_text(request, user_id=user_id)
 
 @app.get("/stats", response_model=DashboardStats)
+@app.get("/v1/stats", response_model=DashboardStats)
 def stats_endpoint(
     current_user: Optional[Dict[str, Any]] = Depends(get_optional_user),
     x_admin_key: Optional[str] = Header(None, alias="X-Admin-Key")
