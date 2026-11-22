@@ -1,16 +1,28 @@
-import React, { useState } from 'react';
-import { ShieldAlert, Menu, X, ArrowRight, Activity, Terminal, LayoutDashboard, Award, Sparkles } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { ShieldAlert, Menu, X, ArrowRight, Terminal, LayoutDashboard, Award, Home } from 'lucide-react';
 import { ColorPaletteSelector } from '../theme/ColorPaletteSelector';
+import { ViewRoute } from './CinematicFragmentationTransition';
 
 interface NavbarProps {
-  currentView: 'landing' | 'textguard' | 'dashboard' | 'evaluation';
-  onNavigate: (view: 'landing' | 'textguard' | 'dashboard' | 'evaluation') => void;
+  currentView: ViewRoute;
+  onNavigate: (view: ViewRoute) => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({ currentView, onNavigate }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  const handleNav = (view: 'landing' | 'textguard' | 'dashboard' | 'evaluation') => {
+  // Close mobile menu on Escape key
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && mobileMenuOpen) {
+        setMobileMenuOpen(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [mobileMenuOpen]);
+
+  const handleNav = (view: ViewRoute) => {
     onNavigate(view);
     setMobileMenuOpen(false);
   };
@@ -18,10 +30,11 @@ export const Navbar: React.FC<NavbarProps> = ({ currentView, onNavigate }) => {
   return (
     <header className="fixed top-0 left-0 right-0 z-40 glass-panel border-b border-white/10 transition-all duration-300">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
-        {/* Brand Logo */}
-        <div
+        {/* Brand Logo - Fully accessible and keyboard navigatable */}
+        <button
           onClick={() => handleNav('landing')}
-          className="flex items-center gap-3 cursor-pointer group select-none"
+          className="flex items-center gap-3 cursor-pointer group select-none text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--theme-accent)] rounded-xl p-1 -ml-1 transition-all"
+          aria-label="BhashaShield Home — Return to platform overview"
         >
           <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[var(--theme-accent)] to-[var(--theme-secondary)] flex items-center justify-center shadow-[var(--theme-glow-shadow)] group-hover:scale-105 transition-all duration-300">
             <ShieldAlert className="w-6 h-6 text-[#0A0F1D]" />
@@ -37,14 +50,14 @@ export const Navbar: React.FC<NavbarProps> = ({ currentView, onNavigate }) => {
               Multilingual Security Intelligence
             </div>
           </div>
-        </div>
+        </button>
 
         {/* Desktop Nav Items */}
-        <nav className="hidden md:flex items-center gap-7 text-sm font-semibold text-white/70">
+        <nav className="hidden md:flex items-center gap-7 text-sm font-semibold text-white/70" aria-label="Desktop Navigation">
           <button
             data-nav-desktop="landing"
             onClick={() => handleNav('landing')}
-            className={`transition-all duration-200 hover:text-[var(--theme-accent)] relative py-1 ${
+            className={`transition-all duration-200 hover:text-[var(--theme-accent)] relative py-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--theme-accent)] rounded ${
               currentView === 'landing' ? 'text-[var(--theme-accent)] font-bold' : ''
             }`}
           >
@@ -57,7 +70,7 @@ export const Navbar: React.FC<NavbarProps> = ({ currentView, onNavigate }) => {
           <button
             data-nav-desktop="textguard"
             onClick={() => handleNav('textguard')}
-            className={`transition-all duration-200 hover:text-[var(--theme-accent)] flex items-center gap-1.5 relative py-1 ${
+            className={`transition-all duration-200 hover:text-[var(--theme-accent)] flex items-center gap-1.5 relative py-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--theme-accent)] rounded ${
               currentView === 'textguard' ? 'text-[var(--theme-accent)] font-bold' : ''
             }`}
           >
@@ -71,7 +84,7 @@ export const Navbar: React.FC<NavbarProps> = ({ currentView, onNavigate }) => {
           <button
             data-nav-desktop="dashboard"
             onClick={() => handleNav('dashboard')}
-            className={`transition-all duration-200 hover:text-[var(--theme-accent)] flex items-center gap-1.5 relative py-1 ${
+            className={`transition-all duration-200 hover:text-[var(--theme-accent)] flex items-center gap-1.5 relative py-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--theme-accent)] rounded ${
               currentView === 'dashboard' ? 'text-[var(--theme-accent)] font-bold' : ''
             }`}
           >
@@ -85,7 +98,7 @@ export const Navbar: React.FC<NavbarProps> = ({ currentView, onNavigate }) => {
           <button
             data-nav-desktop="evaluation"
             onClick={() => handleNav('evaluation')}
-            className={`transition-all duration-200 hover:text-[var(--theme-accent)] flex items-center gap-1.5 relative py-1 ${
+            className={`transition-all duration-200 hover:text-[var(--theme-accent)] flex items-center gap-1.5 relative py-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--theme-accent)] rounded ${
               currentView === 'evaluation' ? 'text-[var(--theme-accent)] font-bold' : ''
             }`}
           >
@@ -105,7 +118,7 @@ export const Navbar: React.FC<NavbarProps> = ({ currentView, onNavigate }) => {
           {/* Direct Launch CTA */}
           <button
             onClick={() => handleNav('textguard')}
-            className="theme-button-primary px-4 py-2 rounded-xl text-xs font-black tracking-wider uppercase flex items-center gap-1.5"
+            className="theme-button-primary px-4 py-2 rounded-xl text-xs font-black tracking-wider uppercase flex items-center gap-1.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--theme-accent)]"
           >
             <span>Scan Text</span>
             <ArrowRight className="w-3.5 h-3.5" />
@@ -117,8 +130,10 @@ export const Navbar: React.FC<NavbarProps> = ({ currentView, onNavigate }) => {
           <ColorPaletteSelector />
           <button
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="text-white/70 hover:text-white p-2"
-            aria-label="Toggle Navigation Menu"
+            className="text-white/70 hover:text-white p-2.5 rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--theme-accent)] min-w-[44px] min-h-[44px] flex items-center justify-center"
+            aria-expanded={mobileMenuOpen}
+            aria-controls="mobile-nav-menu"
+            aria-label={mobileMenuOpen ? "Close navigation menu" : "Open navigation menu"}
           >
             {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
           </button>
@@ -127,47 +142,73 @@ export const Navbar: React.FC<NavbarProps> = ({ currentView, onNavigate }) => {
 
       {/* Mobile Drawer */}
       {mobileMenuOpen && (
-        <div className="md:hidden glass-panel border-b border-white/10 p-5 space-y-3 animate-fadeIn">
+        <nav
+          id="mobile-nav-menu"
+          aria-label="Mobile Navigation"
+          className="md:hidden glass-panel border-b border-white/10 p-5 space-y-2 animate-fadeIn"
+        >
           <button
             data-nav-mobile="landing"
             onClick={() => handleNav('landing')}
-            className="w-full text-left py-2.5 px-3 rounded-lg text-sm font-semibold text-white/90 hover:bg-white/5 hover:text-[var(--theme-accent)] flex items-center justify-between"
+            className={`w-full text-left py-3 px-3.5 rounded-xl text-sm font-semibold transition-all flex items-center gap-3 min-h-[44px] ${
+              currentView === 'landing'
+                ? 'bg-[var(--theme-accent)]/15 text-[var(--theme-accent)] border border-[var(--theme-accent)]/30 font-bold'
+                : 'text-white/80 hover:bg-white/5 hover:text-white'
+            }`}
           >
+            <Home className="w-4 h-4 text-[var(--theme-accent)]" />
             <span>Platform Overview</span>
           </button>
+
           <button
             data-nav-mobile="textguard"
             onClick={() => handleNav('textguard')}
-            className="w-full text-left py-2.5 px-3 rounded-lg text-sm font-semibold text-white/90 hover:bg-white/5 hover:text-[var(--theme-accent)] flex items-center gap-2"
+            className={`w-full text-left py-3 px-3.5 rounded-xl text-sm font-semibold transition-all flex items-center gap-3 min-h-[44px] ${
+              currentView === 'textguard'
+                ? 'bg-[var(--theme-accent)]/15 text-[var(--theme-accent)] border border-[var(--theme-accent)]/30 font-bold'
+                : 'text-white/80 hover:bg-white/5 hover:text-white'
+            }`}
           >
             <Terminal className="w-4 h-4 text-[var(--theme-accent)]" />
             <span>Text Guard Workstation</span>
           </button>
+
           <button
             data-nav-mobile="dashboard"
             onClick={() => handleNav('dashboard')}
-            className="w-full text-left py-2.5 px-3 rounded-lg text-sm font-semibold text-white/90 hover:bg-white/5 hover:text-[var(--theme-accent)] flex items-center gap-2"
+            className={`w-full text-left py-3 px-3.5 rounded-xl text-sm font-semibold transition-all flex items-center gap-3 min-h-[44px] ${
+              currentView === 'dashboard'
+                ? 'bg-[var(--theme-accent)]/15 text-[var(--theme-accent)] border border-[var(--theme-accent)]/30 font-bold'
+                : 'text-white/80 hover:bg-white/5 hover:text-white'
+            }`}
           >
             <LayoutDashboard className="w-4 h-4 text-[var(--theme-accent)]" />
             <span>Intelligence Console</span>
           </button>
+
           <button
             data-nav-mobile="evaluation"
             onClick={() => handleNav('evaluation')}
-            className="w-full text-left py-2.5 px-3 rounded-lg text-sm font-semibold text-white/90 hover:bg-white/5 hover:text-[var(--theme-accent)] flex items-center gap-2"
+            className={`w-full text-left py-3 px-3.5 rounded-xl text-sm font-semibold transition-all flex items-center gap-3 min-h-[44px] ${
+              currentView === 'evaluation'
+                ? 'bg-[var(--theme-accent)]/15 text-[var(--theme-accent)] border border-[var(--theme-accent)]/30 font-bold'
+                : 'text-white/80 hover:bg-white/5 hover:text-white'
+            }`}
           >
             <Award className="w-4 h-4 text-[var(--theme-accent)]" />
-            <span>Evaluation & Held-Out Metrics</span>
+            <span>Evaluation & Benchmark Metrics</span>
           </button>
-          <div className="pt-2">
+
+          <div className="pt-3 border-t border-white/10 mt-2">
             <button
               onClick={() => handleNav('textguard')}
-              className="w-full theme-button-primary py-3 rounded-xl text-xs uppercase tracking-wider text-center"
+              className="w-full theme-button-primary py-3 rounded-xl text-xs uppercase tracking-wider text-center min-h-[44px] flex items-center justify-center gap-2"
             >
-              Launch Text Guard
+              <span>Launch Text Guard</span>
+              <ArrowRight className="w-3.5 h-3.5" />
             </button>
           </div>
-        </div>
+        </nav>
       )}
     </header>
   );

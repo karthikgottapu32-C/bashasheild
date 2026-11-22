@@ -34,6 +34,7 @@ import {
 import { getStats, getScans, clearScans, deleteScan } from '../services/api';
 import { DashboardStats, ScanRecord } from '../types';
 import { useTheme } from '../theme/useTheme';
+import { ToastContainer, ToastMessage } from '../components/Toast';
 
 interface DashboardViewProps {
   onNavigateToTextGuard: () => void;
@@ -53,6 +54,16 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   const [clearing, setClearing] = useState(false);
   const [filterRisk, setFilterRisk] = useState<string>("ALL");
   const [searchQuery, setSearchQuery] = useState<string>("");
+  const [toasts, setToasts] = useState<ToastMessage[]>([]);
+
+  const addToast = (toast: Omit<ToastMessage, 'id'>) => {
+    const id = Math.random().toString(36).substring(2, 9);
+    setToasts((prev) => [...prev, { ...toast, id }]);
+  };
+
+  const removeToast = (id: string) => {
+    setToasts((prev) => prev.filter((t) => t.id !== id));
+  };
 
   const loadData = async () => {
     try {
@@ -66,6 +77,12 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       setScans(scansData);
     } catch (err: any) {
       setError(err.message || "Failed to load dashboard operational data");
+      addToast({
+        type: 'error',
+        title: 'Connection Error',
+        message: err.message || 'Failed to load telemetry data from backend.',
+        action: { label: 'Retry', onClick: loadData }
+      });
     } finally {
       setLoading(false);
     }
@@ -81,8 +98,17 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       setClearing(true);
       await clearScans();
       await loadData();
+      addToast({
+        type: 'success',
+        title: 'History Cleared',
+        message: 'Telemetry audit records cleared successfully.'
+      });
     } catch (err: any) {
-      alert("Failed to clear scans: " + err.message);
+      addToast({
+        type: 'error',
+        title: 'Clear Operation Failed',
+        message: err.message || 'Failed to clear scans.'
+      });
     } finally {
       setClearing(false);
     }
@@ -93,36 +119,63 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     try {
       await deleteScan(scanId);
       setScans(prev => prev.filter(s => s.id !== scanId));
+      addToast({
+        type: 'success',
+        title: 'Scan Deleted',
+        message: `Record ${scanId} removed from audit history.`
+      });
     } catch (err: any) {
-      alert("Failed to delete scan: " + err.message);
+      addToast({
+        type: 'error',
+        title: 'Deletion Failed',
+        message: err.message || `Failed to delete scan ${scanId}.`
+      });
     }
   };
 
   const handleExportCsv = () => {
     if (filteredScans.length === 0) {
-      alert("No scans available to export.");
+      addToast({
+        type: 'warning',
+        title: 'Export Unavailable',
+        message: 'No scan records match current filter criteria.'
+      });
       return;
     }
-    const headers = ["Scan ID", "Timestamp", "Channel", "Language", "Script", "Risk Level", "Risk Score", "Primary Threat", "Text Preview"];
-    const rows = filteredScans.map(s => [
-      `"${s.id}"`,
-      `"${s.timestamp}"`,
-      `"${s.channel}"`,
-      `"${s.language}"`,
-      `"${s.script}"`,
-      `"${s.risk_level}"`,
-      s.risk_score,
-      `"${s.primary_threat || 'BENIGN'}"`,
-      `"${s.text_preview.replace(/"/g, '""')}"`
-    ]);
-    const csvContent = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows.map(e => e.join(","))].join("\n");
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `bhashashield_scans_${new Date().toISOString().split('T')[0]}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    try {
+      const headers = ["Scan ID", "Timestamp", "Channel", "Language", "Script", "Risk Level", "Risk Score", "Primary Threat", "Text Preview"];
+      const rows = filteredScans.map(s => [
+        `"${s.id}"`,
+        `"${s.timestamp}"`,
+        `"${s.channel}"`,
+        `"${s.language}"`,
+        `"${s.script}"`,
+        `"${s.risk_level}"`,
+        s.risk_score,
+        `"${s.primary_threat || 'BENIGN'}"`,
+        `"${s.text_preview.replace(/"/g, '""')}"`
+      ]);
+      const csvContent = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows.map(e => e.join(","))].join("\n");
+      const encodedUri = encodeURI(csvContent);
+      const link = document.createElement("a");
+      link.setAttribute("href", encodedUri);
+      link.setAttribute("download", `bhashashield_scans_${new Date().toISOString().split('T')[0]}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      addToast({
+        type: 'success',
+        title: 'CSV Export Succeeded',
+        message: `Exported ${filteredScans.length} scan records to CSV.`
+      });
+    } catch (err: any) {
+      addToast({
+        type: 'error',
+        title: 'Export Failed',
+        message: err.message || 'Failed to generate CSV export.'
+      });
+    }
   };
 
   if (loading) {
@@ -545,7 +598,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="p-4 rounded-xl bg-bg-midnight/70 border border-cyan/30 space-y-2">
-              <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-cyan/15 text-cyan">Active Phase 1</span>
+              <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-cyan/15 text-cyan">Active Defense Engine</span>
               <h4 className="text-sm font-bold text-white">Telugu (తెలుగు) & Romanized</h4>
               <p className="text-xs text-txt-secondary">
                 Comprehensive native script detection and Romanized Telugu phonetics ("cheyyi", "marchipo", "bayataku cheppu").
@@ -553,7 +606,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             </div>
 
             <div className="p-4 rounded-xl bg-bg-midnight/70 border border-cyan/30 space-y-2">
-              <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-cyan/15 text-cyan">Active Phase 1</span>
+              <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-cyan/15 text-cyan">Active Defense Engine</span>
               <h4 className="text-sm font-bold text-white">Hindi (हिन्दी) & Romanized</h4>
               <p className="text-xs text-txt-secondary">
                 Devanagari script injection detection and Romanized Hindi phonetics ("bhool jao", "nirdesh", "bina rules").
@@ -561,7 +614,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             </div>
 
             <div className="p-4 rounded-xl bg-bg-midnight/70 border border-cyan/30 space-y-2">
-              <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-cyan/15 text-cyan">Active Phase 1</span>
+              <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-cyan/15 text-cyan">Active Defense Engine</span>
               <h4 className="text-sm font-bold text-white">English & Code-Mixed</h4>
               <p className="text-xs text-txt-secondary">
                 Direct injection attacks, DAN persona overrides, and cross-lingual code-mixed payloads (e.g. English + Hindi).
@@ -688,6 +741,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </div>
         </div>
       )}
+
+      {/* Floating System Toasts */}
+      <ToastContainer toasts={toasts} onDismiss={removeToast} />
     </div>
   );
 };

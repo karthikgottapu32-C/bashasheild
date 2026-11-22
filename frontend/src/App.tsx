@@ -11,6 +11,7 @@ import { LandingPageView } from './views/LandingPageView';
 import { TextGuardView } from './views/TextGuardView';
 import { DashboardView } from './views/DashboardView';
 import { EvaluationView } from './views/EvaluationView';
+import { NotFoundView } from './views/NotFoundView';
 
 // Cinematic incoming/outgoing page variants synchronized with fragmentation
 const pageTransition = {
@@ -72,6 +73,31 @@ export function AppContent() {
     isTransitioningRef.current = isTransitioning;
   }, [isTransitioning]);
 
+  // Dynamic document title and meta description synchronization per view (Check 5 & 6)
+  useEffect(() => {
+    const titles: Record<ViewRoute, string> = {
+      landing: 'BhashaShield — Multilingual AI Security Intelligence Platform',
+      textguard: 'BhashaShield — Text Guard Security Scanner',
+      dashboard: 'BhashaShield — Intelligence Console & Security Telemetry',
+      evaluation: 'BhashaShield — Held-Out Model Evaluation & Benchmarks',
+      notfound: 'BhashaShield — 404 Security Vector Not Found',
+    };
+
+    const descriptions: Record<ViewRoute, string> = {
+      landing: 'Next-generation multilingual prompt-injection defense platform safeguarding AI systems across Telugu, Hindi, Romanized dialects, and mixed scripts.',
+      textguard: 'Scan and analyze prompts, user messages, and documents for prompt injection, jailbreaks, and financial fraud across Indian languages.',
+      dashboard: 'Real-time telemetry, threat distribution, risk level analytics, and audit history of multilingual security scans.',
+      evaluation: 'Independent held-out evaluation benchmarks, calibration metrics, precision, recall, and per-language verification.',
+      notfound: 'The requested telemetry endpoint or route could not be found within the BhashaShield security grid.',
+    };
+
+    document.title = titles[currentView] || titles.landing;
+    const metaDesc = document.querySelector('meta[name="description"]');
+    if (metaDesc) {
+      metaDesc.setAttribute('content', descriptions[currentView] || descriptions.landing);
+    }
+  }, [currentView]);
+
   // Execute transition with breakup animation
   const triggerTransition = useCallback((target: ViewRoute) => {
     if (target === currentViewRef.current) return;
@@ -83,7 +109,7 @@ export function AppContent() {
 
     if (prefersReducedMotion) {
       setCurrentView(target);
-      window.location.hash = target;
+      window.location.hash = target === 'landing' ? '' : target;
       window.scrollTo({ top: 0, behavior: 'auto' });
       return;
     }
@@ -99,7 +125,7 @@ export function AppContent() {
     const next = targetViewRef.current;
     currentViewRef.current = next;
     setCurrentView(next);
-    window.location.hash = next;
+    window.location.hash = next === 'landing' ? '' : next;
     window.scrollTo({ top: 0, behavior: 'auto' });
   }, []);
 
@@ -111,11 +137,12 @@ export function AppContent() {
   // Deep linking and browser back/forward history support
   useEffect(() => {
     const parseHash = (): ViewRoute => {
-      const hash = window.location.hash.replace('#', '').toLowerCase();
-      if (hash === 'textguard' || hash === 'text-guard') return 'textguard';
-      if (hash === 'dashboard' || hash === 'intelligence') return 'dashboard';
-      if (hash === 'evaluation') return 'evaluation';
-      return 'landing';
+      const rawHash = window.location.hash.replace('#', '').trim().toLowerCase();
+      if (!rawHash || rawHash === 'landing' || rawHash === 'overview') return 'landing';
+      if (rawHash === 'textguard' || rawHash === 'text-guard') return 'textguard';
+      if (rawHash === 'dashboard' || rawHash === 'intelligence') return 'dashboard';
+      if (rawHash === 'evaluation') return 'evaluation';
+      return 'notfound';
     };
 
     // Initial mount sync
@@ -218,6 +245,22 @@ export function AppContent() {
               exit="exit"
             >
               <EvaluationView />
+            </motion.div>
+          )}
+
+          {currentView === 'notfound' && (
+            <motion.div
+              key="notfound"
+              variants={pageTransition}
+              initial="initial"
+              animate="animate"
+              exit="exit"
+            >
+              <NotFoundView
+                onNavigateToLanding={() => navigateTo('landing')}
+                onNavigateToTextGuard={() => navigateTo('textguard')}
+                onNavigateToDashboard={() => navigateTo('dashboard')}
+              />
             </motion.div>
           )}
         </AnimatePresence>

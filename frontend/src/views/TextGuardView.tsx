@@ -22,6 +22,7 @@ import { AnalyzeResponse, InputChannel } from '../types';
 import { RiskGauge } from '../components/RiskGauge';
 import { EvidenceHighlighter } from '../components/EvidenceHighlighter';
 import { CyberShield3D } from '../components/CyberShield3D';
+import { ToastContainer, ToastMessage } from '../components/Toast';
 
 const ATTACK_PRESETS = [
   {
@@ -84,17 +85,37 @@ export const TextGuardView: React.FC = () => {
   const [result, setResult] = useState<AnalyzeResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [localHistory, setLocalHistory] = useState<AnalyzeResponse[]>([]);
+  const [toasts, setToasts] = useState<ToastMessage[]>([]);
+
+  const addToast = (toast: Omit<ToastMessage, 'id'>) => {
+    const id = Math.random().toString(36).substring(2, 9);
+    setToasts((prev) => [...prev, { ...toast, id }]);
+  };
+
+  const removeToast = (id: string) => {
+    setToasts((prev) => prev.filter((t) => t.id !== id));
+  };
 
   const handlePresetSelect = (preset: typeof ATTACK_PRESETS[0]) => {
     setInputText(preset.text);
     setChannel(preset.channel);
     setLanguageHint(preset.lang);
     setError(null);
+    addToast({
+      type: 'info',
+      title: 'Attack Preset Loaded',
+      message: `${preset.label} template populated.`
+    });
   };
 
   const handleAnalyze = async () => {
     if (!inputText.trim()) {
       setError("Please enter or select text to analyze.");
+      addToast({
+        type: 'warning',
+        title: 'Empty Input',
+        message: 'Please provide prompt or message text to analyze.'
+      });
       return;
     }
 
@@ -106,7 +127,7 @@ export const TextGuardView: React.FC = () => {
     const stages = [
       "Tokenizing script & linguistic structure...",
       "Matching multilingual & romanized attack rules...",
-      "Running MuRIL / XLM-R neural inference...",
+      "Running Multilingual Classifier & Statistical Embeddings...",
       "Synthesizing threat vectors & evidence..."
     ];
 
@@ -132,9 +153,22 @@ export const TextGuardView: React.FC = () => {
       if (saveToHistory) {
         setLocalHistory(prev => [response, ...prev.slice(0, 9)]);
       }
+
+      addToast({
+        type: response.risk_level === 'LOW' ? 'success' : 'warning',
+        title: 'Threat Analysis Complete',
+        message: `${response.risk_level} risk score (${Math.round(response.risk_score)}/100) identified.`
+      });
     } catch (err: any) {
       clearInterval(stageInterval);
-      setError(err.message || "Failed to analyze input. Verify backend connection.");
+      const errMsg = err.message || "Failed to analyze input. Verify backend connection.";
+      setError(errMsg);
+      addToast({
+        type: 'error',
+        title: 'Analysis Failed',
+        message: errMsg,
+        action: { label: 'Retry Scan', onClick: handleAnalyze }
+      });
     } finally {
       setIsScanning(false);
     }
@@ -144,6 +178,11 @@ export const TextGuardView: React.FC = () => {
     setInputText("");
     setResult(null);
     setError(null);
+    addToast({
+      type: 'info',
+      title: 'Scanner Reset',
+      message: 'Input cleared and ready for new analysis.'
+    });
   };
 
   return (
@@ -152,7 +191,7 @@ export const TextGuardView: React.FC = () => {
       <div className="mb-8">
         <div className="flex items-center gap-2 mb-2">
           <span className="px-2.5 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider bg-cyan/10 text-cyan border border-cyan/30">
-            Phase 1 Active Module
+            Enterprise Security Scanner
           </span>
           <span className="text-xs text-txt-secondary font-mono">
             Direct Inference Engine
@@ -512,6 +551,9 @@ export const TextGuardView: React.FC = () => {
           </AnimatePresence>
         </div>
       </div>
+
+      {/* Floating System Toasts */}
+      <ToastContainer toasts={toasts} onDismiss={removeToast} />
     </div>
   );
 };

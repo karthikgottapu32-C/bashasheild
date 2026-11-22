@@ -103,19 +103,19 @@ export const EvaluationView: React.FC = () => {
     );
   }
 
-  // Format per-group chart data
-  const chartData = Object.entries(
-    activeFilter === 'language'
-      ? metrics.per_language
-      : activeFilter === 'script'
-      ? metrics.per_script
-      : metrics.per_channel
-  ).map(([name, data]) => ({
+  // Format per-group chart data with safe fallbacks
+  const filterSource = activeFilter === 'language'
+    ? (metrics.per_language || {})
+    : activeFilter === 'script'
+    ? (metrics.per_script || {})
+    : (metrics.per_channel || {});
+
+  const chartData = Object.entries(filterSource).map(([name, data]) => ({
     name,
-    f1: Math.round(data.f1_score * 100),
-    precision: Math.round(data.precision * 100),
-    recall: Math.round(data.recall * 100),
-    samples: data.samples || 0
+    f1: Math.round(((data as any).f1_score || 0) * 100),
+    precision: Math.round(((data as any).precision || 0) * 100),
+    recall: Math.round(((data as any).recall || 0) * 100),
+    samples: (data as any).samples || 0
   }));
 
   const cm = metrics.confusion_matrix;

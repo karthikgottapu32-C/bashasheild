@@ -11,7 +11,7 @@ export const EvidenceHighlighter: React.FC<EvidenceHighlighterProps> = ({ text, 
 
   if (!spans || spans.length === 0) {
     return (
-      <div className="font-mono text-sm leading-relaxed text-txt-primary/90 whitespace-pre-wrap p-4 rounded-xl bg-bg-midnight/60 border border-white/5">
+      <div className="font-mono text-sm leading-relaxed text-txt-primary/90 whitespace-pre-wrap break-words [overflow-wrap:anywhere] p-4 rounded-xl bg-bg-midnight/60 border border-white/5">
         {text}
       </div>
     );
@@ -80,7 +80,7 @@ export const EvidenceHighlighter: React.FC<EvidenceHighlighterProps> = ({ text, 
 
   return (
     <div className="relative">
-      <div className="font-mono text-sm leading-relaxed text-txt-primary/90 whitespace-pre-wrap p-4 rounded-xl bg-bg-midnight/70 border border-cyan/20 shadow-inner">
+      <div className="font-mono text-sm leading-relaxed text-txt-primary/90 whitespace-pre-wrap break-words [overflow-wrap:anywhere] p-4 rounded-xl bg-bg-midnight/70 border border-cyan/20 shadow-inner">
         {elements}
       </div>
 

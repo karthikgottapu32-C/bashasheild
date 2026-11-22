@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Shield } from 'lucide-react';
 
-export type ViewRoute = 'landing' | 'textguard' | 'dashboard' | 'evaluation';
+export type ViewRoute = 'landing' | 'textguard' | 'dashboard' | 'evaluation' | 'notfound';
 
 interface CinematicFragmentationTransitionProps {
   isTransitioning: boolean;

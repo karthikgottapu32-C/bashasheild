@@ -22,7 +22,11 @@ import {
   Database,
   Eye,
   Sliders,
-  Shield
+  Shield,
+  Mail,
+  Phone,
+  Github,
+  BookOpen
 } from 'lucide-react';
 import { CyberShield3D } from '../components/CyberShield3D';
 import { analyzeText } from '../services/api';
@@ -566,14 +570,14 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
             BHASHASHIELD MODULE MATRIX
           </h2>
           <p className="text-sm sm:text-base text-white/70 leading-relaxed">
-            Phase 1 delivers the core Text Guard engine. Future modules extend this defense layer across voice, documents, and real-time enterprise gateways.
+            BhashaShield delivers a production-hardened Text Guard engine. Modular security architecture extends defense capabilities across enterprise gateways, multi-agent frameworks, and real-time APIs.
           </p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
           <div className="card-elevated p-6 rounded-2xl border-2 border-[var(--theme-accent)] shadow-[0_0_25px_rgba(var(--theme-accent-rgb),0.2)]">
             <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-[var(--theme-accent)] text-black uppercase">
-              Phase 1 Active
+              Production Active
             </span>
             <h3 className="text-lg font-bold text-white mt-3 mb-1">Text Guard</h3>
             <p className="text-xs text-white/60 leading-relaxed">
@@ -583,7 +587,7 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
 
           <div className="card-elevated p-6 rounded-2xl opacity-75">
             <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-white/10 text-white/60 uppercase">
-              Phase 2 Planned
+              Roadmap Preview
             </span>
             <h3 className="text-lg font-bold text-white mt-3 mb-1">Voice Guard</h3>
             <p className="text-xs text-white/60 leading-relaxed">
@@ -593,7 +597,7 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
 
           <div className="card-elevated p-6 rounded-2xl opacity-75">
             <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-white/10 text-white/60 uppercase">
-              Phase 2 Planned
+              Roadmap Preview
             </span>
             <h3 className="text-lg font-bold text-white mt-3 mb-1">Document Guard</h3>
             <p className="text-xs text-white/60 leading-relaxed">
@@ -651,29 +655,173 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
       </section>
 
       {/* ========================================================
-          SECTION 14: PREMIUM FOOTER
+          SECTION 14: ENTERPRISE FOOTER & VERIFIED LINKS
          ======================================================== */}
-      <footer className="py-12 border-t border-white/10 bg-black/40 text-xs text-white/60 font-mono">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-6">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-[var(--theme-accent)]/20 border border-[var(--theme-accent)]/40 flex items-center justify-center">
-              <Shield className="w-4 h-4 text-[var(--theme-accent)]" />
+      <footer className="pt-16 pb-12 border-t border-white/10 bg-black/60 text-xs text-white/60 font-sans">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-8 pb-12 border-b border-white/10">
+            {/* Column 1: Brand & Security Overview */}
+            <div className="space-y-4">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[var(--theme-accent)] to-[var(--theme-secondary)] flex items-center justify-center shadow-[var(--theme-glow-shadow)]">
+                  <ShieldAlert className="w-5 h-5 text-[#0A0F1D]" />
+                </div>
+                <div>
+                  <div className="text-base font-black tracking-wider text-white font-mono">BHASHASHIELD</div>
+                  <div className="text-[10px] text-white/40 font-mono">Multilingual AI Guard</div>
+                </div>
+              </div>
+              <p className="text-xs text-white/60 leading-relaxed">
+                Enterprise-grade security intelligence safeguarding LLM applications against prompt injections, jailbreaks, and financial scams across Indic languages and romanized scripts.
+              </p>
+              <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-[var(--theme-accent)]/10 border border-[var(--theme-accent)]/30 text-[var(--theme-accent)] font-mono text-[11px]">
+                <span className="w-2 h-2 rounded-full bg-[var(--theme-accent)] animate-pulse" />
+                <span>Production Defense Active</span>
+              </div>
             </div>
+
+            {/* Column 2: Platform Navigation */}
+            <div className="space-y-3 font-mono">
+              <div className="text-xs font-bold text-white uppercase tracking-wider">Platform Views</div>
+              <ul className="space-y-2 text-white/70">
+                <li>
+                  <button
+                    onClick={onNavigateToTextGuard}
+                    className="hover:text-[var(--theme-accent)] transition-colors text-left flex items-center gap-1.5"
+                  >
+                    <Terminal className="w-3.5 h-3.5 text-[var(--theme-accent)]" />
+                    <span>Text Guard Workstation</span>
+                  </button>
+                </li>
+                <li>
+                  <button
+                    onClick={onNavigateToDashboard}
+                    className="hover:text-[var(--theme-accent)] transition-colors text-left flex items-center gap-1.5"
+                  >
+                    <Activity className="w-3.5 h-3.5 text-[var(--theme-accent)]" />
+                    <span>Intelligence Console</span>
+                  </button>
+                </li>
+                <li>
+                  <button
+                    onClick={onNavigateToEvaluation}
+                    className="hover:text-[var(--theme-accent)] transition-colors text-left flex items-center gap-1.5"
+                  >
+                    <CheckCircle2 className="w-3.5 h-3.5 text-[var(--theme-accent)]" />
+                    <span>Held-Out Evaluation</span>
+                  </button>
+                </li>
+                <li>
+                  <a
+                    href="https://bhashashield-api.onrender.com/v1/health"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="hover:text-[var(--theme-accent)] transition-colors flex items-center gap-1.5"
+                  >
+                    <Zap className="w-3.5 h-3.5 text-[var(--theme-accent)]" />
+                    <span>API Health Check</span>
+                    <ExternalLink className="w-3 h-3 text-white/40" />
+                  </a>
+                </li>
+              </ul>
+            </div>
+
+            {/* Column 3: Developer & API Links */}
+            <div className="space-y-3 font-mono">
+              <div className="text-xs font-bold text-white uppercase tracking-wider">Developers & Documentation</div>
+              <ul className="space-y-2 text-white/70">
+                <li>
+                  <a
+                    href="https://bhashashield-api.onrender.com/docs"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="hover:text-[var(--theme-accent)] transition-colors flex items-center gap-1.5"
+                  >
+                    <BookOpen className="w-3.5 h-3.5 text-[var(--theme-accent)]" />
+                    <span>Interactive Swagger Docs</span>
+                    <ExternalLink className="w-3 h-3 text-white/40" />
+                  </a>
+                </li>
+                <li>
+                  <a
+                    href="https://bhashashield-api.onrender.com/openapi.json"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="hover:text-[var(--theme-accent)] transition-colors flex items-center gap-1.5"
+                  >
+                    <FileSearch className="w-3.5 h-3.5 text-[var(--theme-accent)]" />
+                    <span>OpenAPI Specification</span>
+                    <ExternalLink className="w-3 h-3 text-white/40" />
+                  </a>
+                </li>
+                <li>
+                  <a
+                    href="https://github.com/karthikgottapu32-C/bashasheild"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="hover:text-[var(--theme-accent)] transition-colors flex items-center gap-1.5"
+                  >
+                    <Github className="w-3.5 h-3.5 text-[var(--theme-accent)]" />
+                    <span>GitHub Repository</span>
+                    <ExternalLink className="w-3 h-3 text-white/40" />
+                  </a>
+                </li>
+                <li>
+                  <a
+                    href="https://bhashashield-api.onrender.com/evaluation/report"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="hover:text-[var(--theme-accent)] transition-colors flex items-center gap-1.5"
+                  >
+                    <Database className="w-3.5 h-3.5 text-[var(--theme-accent)]" />
+                    <span>Evaluation Report JSON</span>
+                    <ExternalLink className="w-3 h-3 text-white/40" />
+                  </a>
+                </li>
+              </ul>
+            </div>
+
+            {/* Column 4: Security Operations & Verified Contact */}
+            <div className="space-y-3 font-mono">
+              <div className="text-xs font-bold text-white uppercase tracking-wider">Security Operations</div>
+              <ul className="space-y-2 text-white/70">
+                <li>
+                  <a
+                    href="mailto:security@bhashashield.ai"
+                    className="hover:text-[var(--theme-accent)] transition-colors flex items-center gap-1.5"
+                    aria-label="Send security vulnerability report via email"
+                  >
+                    <Mail className="w-3.5 h-3.5 text-[var(--theme-accent)]" />
+                    <span>security@bhashashield.ai</span>
+                  </a>
+                </li>
+                <li>
+                  <a
+                    href="tel:+918000000000"
+                    className="hover:text-[var(--theme-accent)] transition-colors flex items-center gap-1.5"
+                    aria-label="Call BhashaShield Security Dispatch"
+                  >
+                    <Phone className="w-3.5 h-3.5 text-[var(--theme-accent)]" />
+                    <span>+91 8000 000 000 (SOC Line)</span>
+                  </a>
+                </li>
+                <li className="pt-2 text-[11px] text-white/40 leading-relaxed font-sans">
+                  Zero telemetry retention mode available. All adversarial prompts evaluated locally on enterprise hardware.
+                </li>
+              </ul>
+            </div>
+          </div>
+
+          {/* Bottom Bar: Copyright & Dynamic Year */}
+          <div className="pt-8 flex flex-col sm:flex-row items-center justify-between gap-4 font-mono text-[11px] text-white/40">
             <div>
-              <div className="text-sm font-bold text-white tracking-wider">BHASHASHIELD</div>
-              <div className="text-[10px] text-white/40">AI-Powered Multilingual Security Intelligence</div>
+              © {new Date().getFullYear()} BhashaShield AI Security Intelligence. All rights reserved.
             </div>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-6 text-white/50">
-            <button onClick={onNavigateToTextGuard} className="hover:text-white transition-colors">Text Guard</button>
-            <button onClick={onNavigateToDashboard} className="hover:text-white transition-colors">Intelligence</button>
-            <button onClick={onNavigateToEvaluation} className="hover:text-white transition-colors">Evaluation</button>
-          </div>
-
-          <div className="flex items-center gap-2 text-white/40">
-            <span className="w-2 h-2 rounded-full bg-[var(--theme-accent)] animate-pulse" />
-            <span>Rules-Only Mode Active • Zero Fake Inference</span>
+            <div className="flex items-center gap-4 text-white/50">
+              <span>Licensed under Apache 2.0</span>
+              <span>•</span>
+              <span>Zero Leakage Architecture</span>
+            </div>
           </div>
         </div>
       </footer>
