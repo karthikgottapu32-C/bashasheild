@@ -664,6 +664,26 @@ def create_user(username: str, email: str, hashed_password: str, role: str = "us
     }
 
 
+def get_user_count() -> int:
+    """Returns the total number of registered users across the platform."""
+    if USE_POSTGRES and pg_pool:
+        conn = _get_pg_conn()
+        try:
+            with conn.cursor() as cursor:
+                cursor.execute("SELECT COUNT(*) FROM users;")
+                return cursor.fetchone()[0]
+        finally:
+            _put_pg_conn(conn)
+    else:
+        conn = get_sqlite_connection()
+        try:
+            cursor = conn.cursor()
+            cursor.execute("SELECT COUNT(*) FROM users;")
+            return cursor.fetchone()[0]
+        finally:
+            conn.close()
+
+
 def get_user_by_username_or_email(identifier: str) -> Optional[Dict[str, Any]]:
     clean = identifier.lower().strip()
     if USE_POSTGRES and pg_pool:

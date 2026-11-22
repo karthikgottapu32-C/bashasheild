@@ -49,6 +49,7 @@ from app.database import (
     checkpoint_sqlite_wal,
     get_database_status,
     create_user,
+    get_user_count,
     get_user_by_username_or_email,
     get_user_by_id,
     update_user_password,
@@ -455,6 +456,7 @@ def health_check():
 # ==============================================================================
 
 @app.post("/v1/auth/register", response_model=AuthResponse)
+@app.post("/auth/register", response_model=AuthResponse)
 def register_endpoint(req: UserRegisterRequest, request: Request):
     client_ip = request.client.host if request.client else "unknown"
     _check_registration_rate_limit(client_ip)
@@ -482,7 +484,10 @@ def register_endpoint(req: UserRegisterRequest, request: Request):
         raise HTTPException(status_code=409, detail="A user with this email address already exists.")
 
     hashed = hash_password(req.password)
-    user = create_user(username=clean_username, email=clean_email, hashed_password=hashed)
+    # First-administrator bootstrap: the very first registered user is automatically designated as 'admin'
+    user_count = get_user_count()
+    initial_role = "admin" if user_count == 0 else "user"
+    user = create_user(username=clean_username, email=clean_email, hashed_password=hashed, role=initial_role)
     token = create_access_token(user_id=user["id"], username=user["username"], role=user["role"])
 
     return AuthResponse(
@@ -498,6 +503,7 @@ def register_endpoint(req: UserRegisterRequest, request: Request):
     )
 
 @app.post("/v1/auth/login", response_model=AuthResponse)
+@app.post("/auth/login", response_model=AuthResponse)
 def login_endpoint(req: UserLoginRequest, request: Request):
     client_ip = request.client.host if request.client else "unknown"
     _check_login_rate_limit(client_ip, req.username)
@@ -533,6 +539,7 @@ def login_endpoint(req: UserLoginRequest, request: Request):
     )
 
 @app.post("/v1/auth/logout")
+@app.post("/auth/logout")
 def logout_endpoint(
     current_user: Dict[str, Any] = Depends(get_current_user),
     authorization: Optional[str] = Header(None)
@@ -547,6 +554,7 @@ def logout_endpoint(
     return {"status": "success", "message": "Successfully logged out. Session token invalidated."}
 
 @app.get("/v1/auth/me", response_model=UserResponse)
+@app.get("/auth/me", response_model=UserResponse)
 def get_me_endpoint(current_user: Dict[str, Any] = Depends(get_current_user)):
     user = get_user_by_id(current_user["sub"])
     if not user:
@@ -819,7 +827,7 @@ if STATIC_DIR and (STATIC_DIR / "assets").exists():
 
 @app.get("/{full_path:path}", include_in_schema=False)
 async def spa_fallback(full_path: str):
-    api_prefixes = ("v1/", "analyze", "stats", "scans", "health", "evaluation/", "docs", "openapi.json", "redoc")
+    api_prefixes = ("v1/", "auth", "analyze", "stats", "scans", "health", "evaluation/", "docs", "openapi.json", "redoc")
     if full_path.startswith(api_prefixes):
         raise HTTPException(status_code=404, detail="Not Found")
     if STATIC_DIR and STATIC_DIR.exists():

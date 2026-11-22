@@ -39,7 +39,9 @@ export const Navbar: React.FC<NavbarProps> = ({ currentView, onNavigate }) => {
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
   const [authUsername, setAuthUsername] = useState('');
+  const [authEmail, setAuthEmail] = useState('');
   const [authPassword, setAuthPassword] = useState('');
+  const [authConfirmPassword, setAuthConfirmPassword] = useState('');
   const [authLoading, setAuthLoading] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
 
@@ -80,15 +82,32 @@ export const Navbar: React.FC<NavbarProps> = ({ currentView, onNavigate }) => {
 
     try {
       if (authMode === 'login') {
-        const res = await loginUser(authUsername, authPassword);
+        const res = await loginUser(authUsername.trim(), authPassword);
         setUser(res.user);
       } else {
-        const res = await registerUser(authUsername, authPassword);
+        if (authPassword !== authConfirmPassword) {
+          setAuthError('Passwords do not match. Please verify both password entries.');
+          setAuthLoading(false);
+          return;
+        }
+        if (authPassword.length < 8) {
+          setAuthError('Password must be at least 8 characters long.');
+          setAuthLoading(false);
+          return;
+        }
+        if (!/[a-zA-Z]/.test(authPassword) || !/[\d\W_]/.test(authPassword)) {
+          setAuthError('Password must contain at least one letter and at least one digit or special character.');
+          setAuthLoading(false);
+          return;
+        }
+        const res = await registerUser(authUsername.trim(), authPassword, authEmail.trim() || undefined);
         setUser(res.user);
       }
       setAuthModalOpen(false);
       setAuthUsername('');
+      setAuthEmail('');
       setAuthPassword('');
+      setAuthConfirmPassword('');
       // Dispatch custom event so dashboard/scans reload
       window.dispatchEvent(new CustomEvent('bhashashield:auth-change'));
     } catch (err: any) {
@@ -223,18 +242,31 @@ export const Navbar: React.FC<NavbarProps> = ({ currentView, onNavigate }) => {
               )}
             </div>
           ) : (
-            <button
-              onClick={() => {
-                setAuthModalOpen(true);
-                setAuthMode('login');
-                setAuthError(null);
-              }}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/5 border border-white/10 hover:border-[var(--theme-accent)]/50 text-xs font-semibold text-white/80 hover:text-white transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--theme-accent)]"
-              aria-label="Sign In or Register"
-            >
-              <User className="w-3.5 h-3.5 text-[var(--theme-accent)]" />
-              <span>Sign In</span>
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => {
+                  setAuthModalOpen(true);
+                  setAuthMode('login');
+                  setAuthError(null);
+                }}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/5 border border-white/10 hover:border-[var(--theme-accent)]/50 text-xs font-semibold text-white/80 hover:text-white transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--theme-accent)]"
+                aria-label="Sign In"
+              >
+                <User className="w-3.5 h-3.5 text-[var(--theme-accent)]" />
+                <span>Sign In</span>
+              </button>
+              <button
+                onClick={() => {
+                  setAuthModalOpen(true);
+                  setAuthMode('register');
+                  setAuthError(null);
+                }}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[var(--theme-accent)]/15 border border-[var(--theme-accent)]/40 hover:bg-[var(--theme-accent)]/25 text-xs font-bold text-[var(--theme-accent)] hover:text-white transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--theme-accent)] shadow-[0_0_10px_rgba(var(--theme-accent-rgb),0.15)]"
+                aria-label="Create Account"
+              >
+                <span>Create Account</span>
+              </button>
+            </div>
           )}
 
           {/* Interactive 60/30/10 Theme Selector */}
@@ -341,18 +373,31 @@ export const Navbar: React.FC<NavbarProps> = ({ currentView, onNavigate }) => {
                 </button>
               </div>
             ) : (
-              <button
-                onClick={() => {
-                  setMobileMenuOpen(false);
-                  setAuthModalOpen(true);
-                  setAuthMode('login');
-                  setAuthError(null);
-                }}
-                className="w-full py-2.5 rounded-xl bg-white/5 border border-white/10 hover:border-[var(--theme-accent)]/50 text-xs font-semibold text-white flex items-center justify-center gap-2"
-              >
-                <User className="w-3.5 h-3.5 text-[var(--theme-accent)]" />
-                <span>Sign In / Register</span>
-              </button>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  onClick={() => {
+                    setMobileMenuOpen(false);
+                    setAuthModalOpen(true);
+                    setAuthMode('login');
+                    setAuthError(null);
+                  }}
+                  className="w-full py-2.5 rounded-xl bg-white/5 border border-white/10 hover:border-[var(--theme-accent)]/50 text-xs font-semibold text-white flex items-center justify-center gap-2"
+                >
+                  <User className="w-3.5 h-3.5 text-[var(--theme-accent)]" />
+                  <span>Sign In</span>
+                </button>
+                <button
+                  onClick={() => {
+                    setMobileMenuOpen(false);
+                    setAuthModalOpen(true);
+                    setAuthMode('register');
+                    setAuthError(null);
+                  }}
+                  className="w-full py-2.5 rounded-xl bg-[var(--theme-accent)]/15 border border-[var(--theme-accent)]/30 text-xs font-bold text-[var(--theme-accent)] flex items-center justify-center gap-2"
+                >
+                  <span>Create Account</span>
+                </button>
+              </div>
             )}
           </div>
 
@@ -426,7 +471,7 @@ export const Navbar: React.FC<NavbarProps> = ({ currentView, onNavigate }) => {
                     : 'text-white/70 hover:text-white'
                 }`}
               >
-                Register
+                Create Account
               </button>
             </div>
 
@@ -440,10 +485,10 @@ export const Navbar: React.FC<NavbarProps> = ({ currentView, onNavigate }) => {
               </div>
             )}
 
-            <form onSubmit={handleAuthSubmit} className="space-y-4">
+            <form onSubmit={handleAuthSubmit} className="space-y-3.5">
               <div>
                 <label className="block text-xs font-mono font-medium text-white/70 mb-1">
-                  Username
+                  {authMode === 'login' ? 'Username or Email' : 'Username'}
                 </label>
                 <input
                   type="text"
@@ -451,13 +496,31 @@ export const Navbar: React.FC<NavbarProps> = ({ currentView, onNavigate }) => {
                   autoFocus
                   value={authUsername}
                   onChange={(e) => setAuthUsername(e.target.value)}
-                  placeholder="e.g. security_lead"
+                  placeholder={authMode === 'login' ? 'e.g. security_lead or user@corp.com' : 'e.g. security_lead'}
                   className="w-full px-3.5 py-2.5 rounded-xl bg-white/5 border border-white/15 focus:border-[var(--theme-accent)] text-sm text-white placeholder-white/30 focus:outline-none focus:ring-1 focus:ring-[var(--theme-accent)] font-mono transition-all"
                 />
                 <span className="text-[10px] text-white/40 font-mono mt-0.5 block">
-                  Alphanumeric, underscore or dash (min 3 chars)
+                  {authMode === 'login' ? 'Enter your registered username or email' : 'Alphanumeric, underscore or dash (min 3 chars)'}
                 </span>
               </div>
+
+              {authMode === 'register' && (
+                <div>
+                  <label className="block text-xs font-mono font-medium text-white/70 mb-1">
+                    Email Address <span className="text-white/40">(Optional)</span>
+                  </label>
+                  <input
+                    type="email"
+                    value={authEmail}
+                    onChange={(e) => setAuthEmail(e.target.value)}
+                    placeholder="e.g. lead@security.corp"
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-white/5 border border-white/15 focus:border-[var(--theme-accent)] text-sm text-white placeholder-white/30 focus:outline-none focus:ring-1 focus:ring-[var(--theme-accent)] font-mono transition-all"
+                  />
+                  <span className="text-[10px] text-white/40 font-mono mt-0.5 block">
+                    Used for notifications and account recovery
+                  </span>
+                </div>
+              )}
 
               <div>
                 <label className="block text-xs font-mono font-medium text-white/70 mb-1">
@@ -472,14 +535,35 @@ export const Navbar: React.FC<NavbarProps> = ({ currentView, onNavigate }) => {
                   className="w-full px-3.5 py-2.5 rounded-xl bg-white/5 border border-white/15 focus:border-[var(--theme-accent)] text-sm text-white placeholder-white/30 focus:outline-none focus:ring-1 focus:ring-[var(--theme-accent)] font-mono transition-all"
                 />
                 <span className="text-[10px] text-white/40 font-mono mt-0.5 block">
-                  Minimum 8 characters
+                  Minimum 8 characters with letter and number/symbol
                 </span>
               </div>
+
+              {authMode === 'register' && (
+                <div>
+                  <label className="block text-xs font-mono font-medium text-white/70 mb-1">
+                    Confirm Password
+                  </label>
+                  <input
+                    type="password"
+                    required
+                    value={authConfirmPassword}
+                    onChange={(e) => setAuthConfirmPassword(e.target.value)}
+                    placeholder="••••••••••••"
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-white/5 border border-white/15 focus:border-[var(--theme-accent)] text-sm text-white placeholder-white/30 focus:outline-none focus:ring-1 focus:ring-[var(--theme-accent)] font-mono transition-all"
+                  />
+                  {authConfirmPassword && authPassword !== authConfirmPassword && (
+                    <span className="text-[10px] text-red-400 font-mono mt-0.5 block">
+                      Passwords do not match
+                    </span>
+                  )}
+                </div>
+              )}
 
               <button
                 type="submit"
                 disabled={authLoading}
-                className="w-full theme-button-primary py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 mt-2 disabled:opacity-50"
+                className="w-full theme-button-primary py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 mt-4 disabled:opacity-50"
               >
                 {authLoading ? (
                   <>
@@ -490,6 +574,33 @@ export const Navbar: React.FC<NavbarProps> = ({ currentView, onNavigate }) => {
                   <span>{authMode === 'login' ? 'Sign In' : 'Create Account'}</span>
                 )}
               </button>
+
+              {/* Bottom Mode Switcher */}
+              <div className="pt-3 border-t border-white/10 text-center text-xs text-white/60">
+                {authMode === 'login' ? (
+                  <p>
+                    Don't have an account?{' '}
+                    <button
+                      type="button"
+                      onClick={() => { setAuthMode('register'); setAuthError(null); }}
+                      className="text-[var(--theme-accent)] font-semibold hover:underline focus:outline-none"
+                    >
+                      Create one now &rarr;
+                    </button>
+                  </p>
+                ) : (
+                  <p>
+                    Already have an account?{' '}
+                    <button
+                      type="button"
+                      onClick={() => { setAuthMode('login'); setAuthError(null); }}
+                      className="text-[var(--theme-accent)] font-semibold hover:underline focus:outline-none"
+                    >
+                      Sign in here &rarr;
+                    </button>
+                  </p>
+                )}
+              </div>
             </form>
           </div>
         </div>

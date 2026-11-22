@@ -201,11 +201,15 @@ export async function checkHealth(): Promise<{ status: string; model_status: str
   return requestJson<{ status: string; model_status: string }>('/health');
 }
 
-export async function registerUser(username: string, password: string): Promise<AuthResponse> {
+export async function registerUser(username: string, password: string, email?: string): Promise<AuthResponse> {
+  const payload: Record<string, string> = { username, password };
+  if (email && email.trim()) {
+    payload.email = email.trim();
+  }
   const data = await requestJson<AuthResponse>('/v1/auth/register', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ username, password }),
+    body: JSON.stringify(payload),
   });
   setAuthToken(data.access_token);
   setStoredUser(data.user);

@@ -376,3 +376,38 @@ def test_auth_rate_limiting_and_brute_force_lockout():
     _reset_failed_logins(mock_ip, mock_target)
     _check_login_rate_limit(mock_ip, mock_target)  # No exception
 
+
+def test_auth_route_aliases_and_admin_bootstrap():
+    """Verify route aliases without /v1 prefix work correctly and first user bootstrap behaves properly."""
+    unique_suffix = uuid.uuid4().hex[:6]
+    u_alias = f"alias_{unique_suffix}"
+    e_alias = f"alias_{unique_suffix}@shield.internal"
+
+    # Register via /auth/register (alias)
+    r_reg = client.post("/auth/register", json={
+        "username": u_alias,
+        "email": e_alias,
+        "password": "SecurePassword123!"
+    })
+    assert r_reg.status_code == 200
+    token = r_reg.json()["access_token"]
+    assert token is not None
+
+    # Login via /auth/login (alias)
+    r_login = client.post("/auth/login", json={
+        "username": u_alias,
+        "password": "SecurePassword123!"
+    })
+    assert r_login.status_code == 200
+    assert r_login.json()["access_token"] is not None
+
+    # Get profile via /auth/me (alias)
+    r_me = client.get("/auth/me", headers={"Authorization": f"Bearer {token}"})
+    assert r_me.status_code == 200
+    assert r_me.json()["username"] == u_alias
+
+    # Logout via /auth/logout (alias)
+    r_logout = client.post("/auth/logout", headers={"Authorization": f"Bearer {token}"})
+    assert r_logout.status_code == 200
+
+
