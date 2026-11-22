@@ -948,7 +948,12 @@ def get_scans(
         conditions.append("user_id = %s" if USE_POSTGRES else "user_id = ?")
         params.append(user_id)
     else:
-        conditions.append("(user_id = 'anonymous' OR id LIKE 'DEMO-%')")
+        if USE_POSTGRES:
+            conditions.append("(user_id = %s OR id LIKE %s)")
+            params.extend(["anonymous", "DEMO-%"])
+        else:
+            conditions.append("(user_id = ? OR id LIKE ?)")
+            params.extend(["anonymous", "DEMO-%"])
 
     if USE_POSTGRES and pg_pool:
         import psycopg2.extras
@@ -1127,9 +1132,9 @@ def clear_scans(user_id: Optional[str] = None, is_admin: bool = False) -> int:
         sql_sq = "DELETE FROM scans WHERE user_id = ?"
         params = (user_id,)
     else:
-        sql_pg = "DELETE FROM scans WHERE id NOT LIKE 'DEMO-%'"
-        sql_sq = "DELETE FROM scans WHERE id NOT LIKE 'DEMO-%'"
-        params = ()
+        sql_pg = "DELETE FROM scans WHERE id NOT LIKE %s"
+        sql_sq = "DELETE FROM scans WHERE id NOT LIKE ?"
+        params = ("DEMO-%",)
 
     if USE_POSTGRES and pg_pool:
         conn = _get_pg_conn()
@@ -1164,7 +1169,12 @@ def get_dashboard_stats(user_id: Optional[str] = None, is_admin: bool = False) -
         conditions.append("user_id = %s" if USE_POSTGRES else "user_id = ?")
         params.append(user_id)
     else:
-        conditions.append("(user_id = 'anonymous' OR id LIKE 'DEMO-%')")
+        if USE_POSTGRES:
+            conditions.append("(user_id = %s OR id LIKE %s)")
+            params.extend(["anonymous", "DEMO-%"])
+        else:
+            conditions.append("(user_id = ? OR id LIKE ?)")
+            params.extend(["anonymous", "DEMO-%"])
 
     where_clause = f"WHERE {' AND '.join(conditions)}" if conditions else ""
 
@@ -1180,8 +1190,8 @@ def get_dashboard_stats(user_id: Optional[str] = None, is_admin: bool = False) -
                 cursor.execute(f"SELECT COUNT(*) as cnt FROM scans {sub_where}", tuple(params))
                 threat_count = cursor.fetchone()["cnt"]
 
-                sub_pi = f"{where_clause} {'AND' if where_clause else 'WHERE'} (primary_threat = 'PROMPT_INJECTION' OR threat_categories LIKE '%%PROMPT_INJECTION%%')"
-                cursor.execute(f"SELECT COUNT(*) as cnt FROM scans {sub_pi}", tuple(params))
+                sub_pi = f"{where_clause} {'AND' if where_clause else 'WHERE'} (primary_threat = 'PROMPT_INJECTION' OR threat_categories LIKE %s)"
+                cursor.execute(f"SELECT COUNT(*) as cnt FROM scans {sub_pi}", tuple(params) + ("%PROMPT_INJECTION%",))
                 prompt_injection_count = cursor.fetchone()["cnt"]
 
                 sub_high = f"{where_clause} {'AND' if where_clause else 'WHERE'} risk_level IN ('HIGH', 'CRITICAL')"
@@ -1248,8 +1258,8 @@ def get_dashboard_stats(user_id: Optional[str] = None, is_admin: bool = False) -
         cursor.execute(f"SELECT COUNT(*) as cnt FROM scans {sub_where}", tuple(params))
         threat_count = cursor.fetchone()["cnt"]
 
-        sub_pi = f"{where_clause} {'AND' if where_clause else 'WHERE'} (primary_threat = 'PROMPT_INJECTION' OR threat_categories LIKE '%PROMPT_INJECTION%')"
-        cursor.execute(f"SELECT COUNT(*) as cnt FROM scans {sub_pi}", tuple(params))
+        sub_pi = f"{where_clause} {'AND' if where_clause else 'WHERE'} (primary_threat = 'PROMPT_INJECTION' OR threat_categories LIKE ?)"
+        cursor.execute(f"SELECT COUNT(*) as cnt FROM scans {sub_pi}", tuple(params) + ("%PROMPT_INJECTION%",))
         prompt_injection_count = cursor.fetchone()["cnt"]
 
         sub_high = f"{where_clause} {'AND' if where_clause else 'WHERE'} risk_level IN ('HIGH', 'CRITICAL')"
