@@ -29,6 +29,7 @@ from app.core.model_service import model_service
 from app.database import (
     init_db,
     checkpoint_sqlite_wal,
+    get_database_status,
     get_scans,
     get_scan_by_id,
     delete_scan,
@@ -42,6 +43,20 @@ from app.ml.evaluate import run_evaluation
 from contextlib import asynccontextmanager
 
 logger = logging.getLogger("bhashashield.api")
+
+def get_deployed_git_commit() -> str:
+    commit = os.environ.get("RENDER_GIT_COMMIT") or os.environ.get("GIT_COMMIT")
+    if commit:
+        return commit
+    try:
+        import subprocess
+        res = subprocess.run(["git", "rev-parse", "HEAD"], capture_output=True, text=True, timeout=2)
+        if res.returncode == 0:
+            return res.stdout.strip()
+    except Exception:
+        pass
+    return "5b570b8"
+
 
 # Rate limiting sliding-window record: ip -> list of timestamps
 _rate_limit_records: Dict[str, List[float]] = defaultdict(list)
@@ -296,11 +311,15 @@ def seed_demo_scans():
 
 @app.get("/health")
 def health_check():
+    db_status = get_database_status()
     return {
         "status": "healthy",
         "service": "BhashaShield AI Security Intelligence Engine",
+        "version": "1.0.0",
+        "git_commit": get_deployed_git_commit(),
+        "git_branch": os.environ.get("RENDER_GIT_BRANCH", "main"),
         "model_status": model_service.status,
-        "database": "sqlite_connected"
+        "database": db_status
     }
 
 @app.post("/analyze", response_model=AnalyzeResponse)
@@ -383,12 +402,16 @@ def trigger_evaluation_endpoint(_: bool = Depends(verify_admin_key)):
 
 @app.get("/v1/health")
 def v1_health_endpoint():
+    db_status = get_database_status()
     return {
         "status": "healthy",
         "version": "1.0.0",
+        "git_commit": get_deployed_git_commit(),
+        "git_branch": os.environ.get("RENDER_GIT_BRANCH", "main"),
         "model_status": model_service.status,
         "engine": "BhashaShield Enterprise Intelligence Engine",
-        "policy_engine": "ACTIVE"
+        "policy_engine": "ACTIVE",
+        "database": db_status
     }
 
 @app.post("/v1/analyze", response_model=AnalyzeResponse)

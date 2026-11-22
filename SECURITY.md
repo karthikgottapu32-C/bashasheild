@@ -22,6 +22,6 @@ BhashaShield is designed under the **Defense-in-Depth** and **Zero-Trust Input**
 ## 3. Vulnerability Reporting
 
 If you identify a security issue in BhashaShield or discover a novel bypass technique:
-1. Do not open a public GitHub issue.
-2. Email the security research team at `security@bhashashield.ai` with a reproducible proof-of-concept.
-3. Security disclosures are addressed within 48 hours.
+1. Please submit a private vulnerability report via [GitHub Security Advisories](https://github.com/karthikgottapu32-C/bashasheild/security/advisories) with a reproducible proof-of-concept.
+2. If private reporting is unavailable, submit a report via GitHub Issues.
+3. Notice: Direct telephone and email inboxes are inactive; all security reporting is handled via the official GitHub repository.

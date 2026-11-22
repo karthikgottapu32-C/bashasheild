@@ -781,32 +781,38 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
               </ul>
             </div>
 
-            {/* Column 4: Security Operations & Verified Contact */}
+            {/* Column 4: Responsible Disclosure & Vulnerability Tracking */}
             <div className="space-y-3 font-mono">
-              <div className="text-xs font-bold text-white uppercase tracking-wider">Security Operations</div>
+              <div className="text-xs font-bold text-white uppercase tracking-wider">Responsible Disclosure</div>
               <ul className="space-y-2 text-white/70">
                 <li>
                   <a
-                    href="mailto:security@bhashashield.ai"
+                    href="https://github.com/karthikgottapu32-C/bashasheild/issues"
+                    target="_blank"
+                    rel="noopener noreferrer"
                     className="hover:text-[var(--theme-accent)] transition-colors flex items-center gap-1.5"
-                    aria-label="Send security vulnerability report via email"
+                    aria-label="Submit security vulnerability or issue report on GitHub"
                   >
-                    <Mail className="w-3.5 h-3.5 text-[var(--theme-accent)]" />
-                    <span>security@bhashashield.ai</span>
+                    <ShieldCheck className="w-3.5 h-3.5 text-[var(--theme-accent)]" />
+                    <span>GitHub Issue Tracker</span>
+                    <ExternalLink className="w-3 h-3 text-white/40" />
                   </a>
                 </li>
                 <li>
                   <a
-                    href="tel:+918000000000"
+                    href="https://github.com/karthikgottapu32-C/bashasheild/blob/main/SECURITY.md"
+                    target="_blank"
+                    rel="noopener noreferrer"
                     className="hover:text-[var(--theme-accent)] transition-colors flex items-center gap-1.5"
-                    aria-label="Call BhashaShield Security Dispatch"
+                    aria-label="View Responsible Disclosure Policy"
                   >
-                    <Phone className="w-3.5 h-3.5 text-[var(--theme-accent)]" />
-                    <span>+91 8000 000 000 (SOC Line)</span>
+                    <Lock className="w-3.5 h-3.5 text-[var(--theme-accent)]" />
+                    <span>Security Policy (SECURITY.md)</span>
+                    <ExternalLink className="w-3 h-3 text-white/40" />
                   </a>
                 </li>
                 <li className="pt-2 text-[11px] text-white/40 leading-relaxed font-sans">
-                  Zero telemetry retention mode available. All adversarial prompts evaluated locally on enterprise hardware.
+                  Notice: Inbound telephone hotlines and dedicated email boxes are currently inactive. Please report security issues directly via GitHub repository advisories.
                 </li>
               </ul>
             </div>

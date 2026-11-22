@@ -9,7 +9,7 @@ export function getApiBaseUrl(): string {
     const hostname = window.location.hostname;
     const port = window.location.port;
 
-    // Local development: use Vite proxy on 5173/4173, or direct backend on 8000
+    // Local development: use Vite proxy on 5173/4173, or direct local backend on 8000
     if (hostname === 'localhost' || hostname === '127.0.0.1') {
       if (port === '5173' || port === '4173') {
         return '';
@@ -17,13 +17,19 @@ export function getApiBaseUrl(): string {
       return 'http://127.0.0.1:8000';
     }
 
-    // If served directly from the Render backend origin
-    if (hostname === 'bhashashield-api.onrender.com') {
+    // When served from the cloud backend (Render) or any custom domain:
+    // Relative requests stay on the same origin and eliminate cross-device localhost failures
+    if (hostname === 'bhashashield-api.onrender.com' || !hostname.includes('.')) {
       return '';
     }
 
-    // Independent frontend host (Vercel, Netlify, Render Static, etc.): target production backend
-    return 'https://bhashashield-api.onrender.com';
+    // External static frontend hosts (e.g. Vercel, Netlify): target public production API
+    if (hostname.endsWith('.vercel.app') || hostname.endsWith('.netlify.app') || hostname.endsWith('.pages.dev')) {
+      return 'https://bhashashield-api.onrender.com';
+    }
+
+    // Fallback: stay relative to current host
+    return '';
   }
 
   return 'https://bhashashield-api.onrender.com';
