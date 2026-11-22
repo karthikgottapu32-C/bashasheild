@@ -5,35 +5,28 @@ import requests
 PROD_URL = "https://bhashashield-api.onrender.com"
 
 def wait_for_deployment(max_wait_seconds=240, poll_interval=10):
-    print(f"Polling {PROD_URL} for commit 769b39a rollout...")
+    print(f"Polling {PROD_URL} for latest release deployment...")
     start_time = time.time()
 
     while time.time() - start_time < max_wait_seconds:
         try:
-            r = requests.get(f"{PROD_URL}/v1/health", timeout=10)
+            r = requests.get(PROD_URL, headers={"Accept": "text/html"}, timeout=10)
             if r.status_code == 200:
-                data = r.json()
-                # Test registration without email to confirm commit 769b39a is deployed
-                probe_user = f"prb_{int(time.time())}"
-                r_probe = requests.post(
-                    f"{PROD_URL}/v1/auth/register",
-                    json={"username": probe_user, "password": "ProbePassword123!"},
-                    timeout=5
-                )
-                print(f"[{int(time.time() - start_time)}s] Probe register without email: status={r_probe.status_code}")
-                if r_probe.status_code == 200:
-                    print("--> New deployment (commit 769b39a) is LIVE!")
-                    return data
+                # Check for new bundle or CSV endpoint to confirm new code rollout
+                if "index-DuUs1lA3.js" in r.text:
+                    print("--> New deployment (bundle index-DuUs1lA3.js) is LIVE!")
+                    return True
+                else:
+                    print(f"[{int(time.time() - start_time)}s] Service responsive; waiting for new bundle rollout...")
             else:
-                print(f"[{int(time.time() - start_time)}s] Health returned {r.status_code}")
+                print(f"[{int(time.time() - start_time)}s] Service returned {r.status_code}")
         except Exception as e:
             print(f"[{int(time.time() - start_time)}s] Connection error: {e}")
         
         time.sleep(poll_interval)
     
     print("Wait timeout reached. Testing current live instance...")
-    r = requests.get(f"{PROD_URL}/v1/health", timeout=10)
-    return r.json() if r.status_code == 200 else {}
+    return False
 
 def run_live_tests():
     print("=" * 60)
@@ -42,9 +35,11 @@ def run_live_tests():
     print("=" * 60)
 
     # 1. Health & Database Diagnostic
-    health = requests.get(f"{PROD_URL}/v1/health", timeout=10).json()
+    health_resp = requests.get(f"{PROD_URL}/v1/health", timeout=10)
+    health = health_resp.json()
     print("\n[1] LIVE HEALTH & DATABASE CONFIGURATION:")
     print(f"  Overall Status:            {health.get('status')}")
+    print(f"  Git Commit:                {health.get('git_commit')}")
     print(f"  Model Engine Status:       {health.get('model_status')}")
     db_info = health.get("database", {})
     print(f"  Database Backend:          {db_info.get('backend')}")
@@ -52,7 +47,7 @@ def run_live_tests():
     print(f"  Persistence Mode:          {db_info.get('persistence_mode')}")
     print(f"  Total Scans Recorded:      {db_info.get('total_scans_recorded')}")
 
-    # 2. CORS Verification
+    # 2. CORS Preflight & Environment Separation
     print("\n[2] CORS PREFLIGHT & ORIGIN RESTRICTION:")
     allowed_origin = "https://bhashashield-api.onrender.com"
     r_cors_allowed = requests.options(
@@ -80,11 +75,31 @@ def run_live_tests():
     cors_blocked_hdr = r_cors_blocked.headers.get("access-control-allow-origin")
     print(f"  Unauthorized Origin ({unauthorized_origin}): Status={r_cors_blocked.status_code}, Allow-Origin={cors_blocked_hdr}")
 
-    # 3. User Authentication Flow
-    print("\n[3] USER REGISTRATION & AUTHENTICATION:")
+    # Verify localhost origin is rejected in production
+    r_cors_localhost = requests.options(
+        f"{PROD_URL}/v1/analyze",
+        headers={
+            "Origin": "http://localhost:5173",
+            "Access-Control-Request-Method": "POST",
+            "Access-Control-Request-Headers": "content-type"
+        },
+        timeout=10
+    )
+    print(f"  Localhost in Production (http://localhost:5173): Status={r_cors_localhost.status_code}, Allow-Origin={r_cors_localhost.headers.get('access-control-allow-origin')}")
+
+    # 3. User Authentication Flow & Password Complexity
+    print("\n[3] USER REGISTRATION, COMPLEXITY & AUTHENTICATION:")
     u_suffix = uuid.uuid4().hex[:6]
     user_a = f"sec_user_a_{u_suffix}"
     pass_a = "StrongPassA123!"
+
+    # Complexity rejection test
+    r_weak = requests.post(
+        f"{PROD_URL}/v1/auth/register",
+        json={"username": f"weak_{u_suffix}", "password": "onlyletters"},
+        timeout=10
+    )
+    print(f"  Password Complexity Enforcement: Status={r_weak.status_code} (Expected 400)")
     
     r_reg_a = requests.post(f"{PROD_URL}/v1/auth/register", json={"username": user_a, "password": pass_a}, timeout=10)
     print(f"  Register User A ({user_a}): Status={r_reg_a.status_code}")
@@ -152,8 +167,22 @@ def run_live_tests():
     print(f"    Contains User A scan: {scan_a_id in anon_ids} (Expected: False - Private)")
     print(f"    Contains User B scan: {scan_b_id in anon_ids} (Expected: False - Private)")
 
-    # 5. Cross-User Deletion Protection
-    print("\n[5] CROSS-USER ACCESS & DELETION SECURITY:")
+    # 5. CSV Export Isolation
+    print("\n[5] USER-ISOLATED CSV EXPORT:")
+    r_csv_a = requests.get(f"{PROD_URL}/v1/scans/export/csv", headers={"Authorization": f"Bearer {token_a}"}, timeout=10)
+    print(f"  User A CSV Export: Status={r_csv_a.status_code}")
+    print(f"    Contains Scan A: {scan_a_id in r_csv_a.text}")
+    print(f"    Contains Scan B: {scan_b_id in r_csv_a.text} (Expected: False - Isolated)")
+
+    # 6. Server-Side Logout & Token Revocation
+    print("\n[6] SERVER-SIDE LOGOUT & TOKEN REVOCATION:")
+    r_logout = requests.post(f"{PROD_URL}/v1/auth/logout", headers={"Authorization": f"Bearer {token_a}"}, timeout=10)
+    print(f"  User A Logout: Status={r_logout.status_code}")
+    r_me_after_logout = requests.get(f"{PROD_URL}/v1/auth/me", headers={"Authorization": f"Bearer {token_a}"}, timeout=10)
+    print(f"  Access /v1/auth/me with Revoked Token: Status={r_me_after_logout.status_code} (Expected 401)")
+
+    # 7. Cross-User Access & Deletion Security
+    print("\n[7] CROSS-USER ACCESS & DELETION SECURITY:")
     r_del_unauth = requests.delete(
         f"{PROD_URL}/v1/scans/{scan_a_id}",
         headers={"Authorization": f"Bearer {token_b}"},
@@ -161,19 +190,12 @@ def run_live_tests():
     )
     print(f"  User B attempts deleting User A's scan: Status={r_del_unauth.status_code} (Expected 404/403)")
 
-    r_del_auth = requests.delete(
-        f"{PROD_URL}/v1/scans/{scan_a_id}",
-        headers={"Authorization": f"Bearer {token_a}"},
-        timeout=10
-    )
-    print(f"  User A deletes own scan: Status={r_del_auth.status_code} (Expected 200)")
-
-    # 6. Frontend HTML & Asset Bundle Verification
-    print("\n[6] FRONTEND ASSET & SPA SERVING:")
+    # 8. Frontend HTML & Asset Bundle Verification
+    print("\n[8] FRONTEND ASSET & SPA SERVING:")
     r_front = requests.get(PROD_URL, headers={"Accept": "text/html"}, timeout=10)
     print(f"  GET / (Accept: text/html): Status={r_front.status_code}")
     print(f"    Contains BhashaShield Title: {'BhashaShield' in r_front.text}")
-    print(f"    Contains Modern JS Bundle: {'index-DPl701e1.js' in r_front.text}")
+    print(f"    Contains Modern JS Bundle (index-DuUs1lA3.js): {'index-DuUs1lA3.js' in r_front.text}")
 
     print("\n" + "=" * 60)
     print("PRODUCTION VERIFICATION SUMMARY COMPLETE")

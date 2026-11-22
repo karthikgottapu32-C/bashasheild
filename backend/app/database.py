@@ -3,6 +3,7 @@ import json
 import os
 import logging
 import uuid
+import time
 from datetime import datetime
 from typing import List, Optional, Dict, Any, Tuple
 from pathlib import Path
@@ -16,30 +17,50 @@ DATABASE_URL = os.environ.get("DATABASE_URL") or getattr(settings, "DATABASE_URL
 USE_POSTGRES = False
 pg_pool = None
 
-if DATABASE_URL and (DATABASE_URL.startswith("postgres://") or DATABASE_URL.startswith("postgresql://")):
-    try:
-        import psycopg2
-        import psycopg2.extras
-        from psycopg2.pool import ThreadedConnectionPool
-        
-        # Normalize connection string for psycopg2 and configure connection timeouts
-        dsn = DATABASE_URL
-        if dsn.startswith("postgres://"):
-            dsn = dsn.replace("postgres://", "postgresql://", 1)
-        if "connect_timeout=" not in dsn and "?" not in dsn:
-            dsn += "?connect_timeout=10"
-        elif "connect_timeout=" not in dsn and "?" in dsn:
-            dsn += "&connect_timeout=10"
-        
-        pg_pool = ThreadedConnectionPool(minconn=1, maxconn=20, dsn=dsn)
-        USE_POSTGRES = True
-        logger.info("Configured PostgreSQL ThreadedConnectionPool persistence engine via DATABASE_URL.")
-    except Exception as e:
-        logger.warning(f"Failed to initialize PostgreSQL pool: {e}. Falling back to SQLite WAL engine.")
+def init_postgres_pool():
+    """Initializes PostgreSQL connection pool with strict startup validation."""
+    global USE_POSTGRES, pg_pool, DATABASE_URL
+    DATABASE_URL = os.environ.get("DATABASE_URL") or getattr(settings, "DATABASE_URL", None)
+    if DATABASE_URL and (DATABASE_URL.startswith("postgres://") or DATABASE_URL.startswith("postgresql://")):
+        try:
+            import psycopg2
+            import psycopg2.extras
+            from psycopg2.pool import ThreadedConnectionPool
+            
+            # Normalize connection string for psycopg2 and configure connection timeouts
+            dsn = DATABASE_URL
+            if dsn.startswith("postgres://"):
+                dsn = dsn.replace("postgres://", "postgresql://", 1)
+            if "connect_timeout=" not in dsn and "?" not in dsn:
+                dsn += "?connect_timeout=10"
+            elif "connect_timeout=" not in dsn and "?" in dsn:
+                dsn += "&connect_timeout=10"
+            
+            pg_pool = ThreadedConnectionPool(minconn=1, maxconn=20, dsn=dsn)
+            # Immediate checkout verification
+            conn = pg_pool.getconn()
+            with conn.cursor() as cur:
+                cur.execute("SELECT 1;")
+            pg_pool.putconn(conn)
+            USE_POSTGRES = True
+            logger.info("Configured and verified PostgreSQL ThreadedConnectionPool persistence engine.")
+        except Exception as e:
+            logger.warning(f"Failed to initialize PostgreSQL pool: {e}. Falling back to SQLite WAL engine.")
+            USE_POSTGRES = False
+            pg_pool = None
+            if settings.REQUIRE_POSTGRES:
+                raise RuntimeError(f"Strict PostgreSQL requirement failed on startup: {e}")
+    else:
         USE_POSTGRES = False
         pg_pool = None
         if settings.REQUIRE_POSTGRES:
-            raise RuntimeError(f"Strict PostgreSQL requirement failed on startup: {e}")
+            raise RuntimeError(
+                "Strict PostgreSQL requirement failed on startup: REQUIRE_POSTGRES is true, "
+                "but DATABASE_URL is not configured or is not a valid PostgreSQL connection string."
+            )
+
+# Execute pool initialization
+init_postgres_pool()
 
 
 def get_sqlite_connection():
@@ -78,13 +99,15 @@ def get_database_status() -> Dict[str, Any]:
         try:
             conn = pg_pool.getconn()
             with conn.cursor() as cur:
-                cur.execute("SELECT 1;")
+                cur.execute("SELECT COUNT(*) FROM scans;")
+                total_scans = cur.fetchone()[0]
             return {
                 "backend": "postgresql",
                 "status": "connected",
                 "persistence_mode": "durable_managed_cloud",
                 "database_url_configured": True,
-                "read_write_verified": True
+                "read_write_verified": True,
+                "total_scans_recorded": total_scans
             }
         except Exception as e:
             return {
@@ -105,7 +128,8 @@ def get_database_status() -> Dict[str, Any]:
         try:
             conn = get_sqlite_connection()
             cur = conn.cursor()
-            cur.execute("SELECT 1;")
+            cur.execute("SELECT COUNT(*) FROM scans;")
+            total_scans = cur.fetchone()[0]
             conn.close()
             return {
                 "backend": "sqlite",
@@ -113,6 +137,7 @@ def get_database_status() -> Dict[str, Any]:
                 "persistence_mode": "container_local_ephemeral_wal",
                 "database_url_configured": has_url,
                 "read_write_verified": True,
+                "total_scans_recorded": total_scans,
                 "note": "Production requires managed PostgreSQL for cross-restart persistence." if not has_url else "PostgreSQL connection failed; running in SQLite WAL fallback."
             }
         except Exception as e:
@@ -217,12 +242,22 @@ def init_db():
                 );
                 """)
 
+                # 6. Revoked tokens table for server-side logout
+                cursor.execute("""
+                CREATE TABLE IF NOT EXISTS revoked_tokens (
+                    jti VARCHAR(64) PRIMARY KEY,
+                    exp BIGINT NOT NULL,
+                    revoked_at VARCHAR(64) NOT NULL
+                );
+                """)
+
                 cursor.execute("CREATE INDEX IF NOT EXISTS idx_scans_timestamp ON scans(timestamp DESC);")
                 cursor.execute("CREATE INDEX IF NOT EXISTS idx_scans_channel ON scans(channel);")
                 cursor.execute("CREATE INDEX IF NOT EXISTS idx_scans_risk_level ON scans(risk_level);")
                 cursor.execute("CREATE INDEX IF NOT EXISTS idx_scans_user_id ON scans(user_id);")
                 cursor.execute("CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);")
                 cursor.execute("CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);")
+                cursor.execute("CREATE INDEX IF NOT EXISTS idx_revoked_tokens_exp ON revoked_tokens(exp);")
                 conn.commit()
                 logger.info("PostgreSQL database tables and migrations initialized.")
         finally:
@@ -291,12 +326,22 @@ def init_db():
         )
         """)
 
+        # 6. Revoked tokens table for server-side logout
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS revoked_tokens (
+            jti TEXT PRIMARY KEY,
+            exp INTEGER NOT NULL,
+            revoked_at TEXT NOT NULL
+        )
+        """)
+
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_scans_timestamp ON scans(timestamp DESC);")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_scans_channel ON scans(channel);")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_scans_risk_level ON scans(risk_level);")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_scans_user_id ON scans(user_id);")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_revoked_tokens_exp ON revoked_tokens(exp);")
         conn.commit()
         conn.close()
         logger.info("SQLite database tables, migrations, and indexes initialized in WAL mode.")
@@ -424,6 +469,81 @@ def get_user_by_id(user_id: str) -> Optional[Dict[str, Any]]:
                 "created_at": row["created_at"],
                 "is_active": bool(row["is_active"])
             }
+        finally:
+            conn.close()
+
+
+def update_user_password(user_id: str, new_hashed_password: str) -> bool:
+    """Updates stored password hash upon successful login and rehash requirement."""
+    if USE_POSTGRES and pg_pool:
+        conn = pg_pool.getconn()
+        try:
+            with conn.cursor() as cur:
+                cur.execute("UPDATE users SET hashed_password = %s WHERE id = %s", (new_hashed_password, user_id))
+            conn.commit()
+            return True
+        finally:
+            pg_pool.putconn(conn)
+    else:
+        conn = get_sqlite_connection()
+        try:
+            conn.execute("UPDATE users SET hashed_password = ? WHERE id = ?", (new_hashed_password, user_id))
+            conn.commit()
+            return True
+        finally:
+            conn.close()
+
+
+def revoke_token(jti: str, exp: int) -> bool:
+    """Invalidates session token on server upon logout."""
+    now_str = datetime.utcnow().isoformat() + "Z"
+    now_ts = int(time.time())
+    if USE_POSTGRES and pg_pool:
+        conn = pg_pool.getconn()
+        try:
+            with conn.cursor() as cur:
+                cur.execute("DELETE FROM revoked_tokens WHERE exp < %s", (now_ts,))
+                cur.execute("""
+                INSERT INTO revoked_tokens (jti, exp, revoked_at)
+                VALUES (%s, %s, %s)
+                ON CONFLICT (jti) DO NOTHING
+                """, (jti, exp, now_str))
+            conn.commit()
+            return True
+        finally:
+            pg_pool.putconn(conn)
+    else:
+        conn = get_sqlite_connection()
+        try:
+            conn.execute("DELETE FROM revoked_tokens WHERE exp < ?", (now_ts,))
+            conn.execute("""
+            INSERT OR IGNORE INTO revoked_tokens (jti, exp, revoked_at)
+            VALUES (?, ?, ?)
+            """, (jti, exp, now_str))
+            conn.commit()
+            return True
+        finally:
+            conn.close()
+
+
+def is_token_revoked(jti: str) -> bool:
+    """Checks whether token was explicitly revoked on logout."""
+    if not jti:
+        return False
+    if USE_POSTGRES and pg_pool:
+        conn = pg_pool.getconn()
+        try:
+            with conn.cursor() as cur:
+                cur.execute("SELECT 1 FROM revoked_tokens WHERE jti = %s LIMIT 1", (jti,))
+                return cur.fetchone() is not None
+        finally:
+            pg_pool.putconn(conn)
+    else:
+        conn = get_sqlite_connection()
+        try:
+            cur = conn.cursor()
+            cur.execute("SELECT 1 FROM revoked_tokens WHERE jti = ? LIMIT 1", (jti,))
+            return cur.fetchone() is not None
         finally:
             conn.close()
 

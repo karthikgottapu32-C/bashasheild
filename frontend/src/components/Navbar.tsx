@@ -98,8 +98,8 @@ export const Navbar: React.FC<NavbarProps> = ({ currentView, onNavigate }) => {
     }
   };
 
-  const handleLogout = () => {
-    logoutUser();
+  const handleLogout = async () => {
+    await logoutUser();
     setUser(null);
     setUserMenuOpen(false);
     window.dispatchEvent(new CustomEvent('bhashashield:auth-change'));

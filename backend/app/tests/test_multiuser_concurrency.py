@@ -208,3 +208,171 @@ def test_concurrent_requests_handling():
         assert status == 200
         assert risk is not None
         assert risk > 50.0
+
+
+def test_password_hashing_owasp_rehash_and_complexity():
+    from app.auth import hash_password, verify_password, password_needs_rehash
+    from app.database import create_user, get_user_by_username_or_email
+
+    unique = uuid.uuid4().hex[:6]
+    pw = "ModernSecurePass123!"
+
+    # 1. Complexity tests
+    # Reject password without numbers or symbols
+    bad_pw1 = client.post("/v1/auth/register", json={
+        "username": f"badpw1_{unique}",
+        "password": "OnlyLettersHere"
+    })
+    assert bad_pw1.status_code == 400
+    assert "digit or special character" in bad_pw1.json()["detail"]
+
+    # Reject password without letters
+    bad_pw2 = client.post("/v1/auth/register", json={
+        "username": f"badpw2_{unique}",
+        "password": "1234567890123"
+    })
+    assert bad_pw2.status_code == 400
+    assert "at least one letter" in bad_pw2.json()["detail"]
+
+    # 2. Modern 600,000-iteration hash format
+    modern_hash = hash_password(pw)
+    assert modern_hash.startswith("pbkdf2-sha256$600000$")
+    assert verify_password(pw, modern_hash) is True
+    assert password_needs_rehash(modern_hash) is False
+
+    # 3. Transparent rehash of legacy hashes on login
+    # Create user with legacy 2-part 100k hash
+    import hashlib, secrets
+    legacy_salt = secrets.token_bytes(16)
+    legacy_key = hashlib.pbkdf2_hmac("sha256", pw.encode("utf-8"), legacy_salt, 100_000)
+    legacy_hash = f"{legacy_salt.hex()}${legacy_key.hex()}"
+    assert password_needs_rehash(legacy_hash) is True
+
+    legacy_username = f"legacy_{unique}"
+    create_user(username=legacy_username, email=f"{legacy_username}@internal.corp", hashed_password=legacy_hash)
+
+    # Login with legacy user
+    login_res = client.post("/v1/auth/login", json={
+        "username": legacy_username,
+        "password": pw
+    })
+    assert login_res.status_code == 200
+
+    # Verify database was automatically upgraded to 600,000-iteration format
+    upgraded_user = get_user_by_username_or_email(legacy_username)
+    assert upgraded_user["hashed_password"].startswith("pbkdf2-sha256$600000$")
+    assert password_needs_rehash(upgraded_user["hashed_password"]) is False
+
+
+def test_jwt_claims_and_token_revocation_logout():
+    from app.auth import decode_access_token
+
+    unique = uuid.uuid4().hex[:6]
+    u = f"user_{unique}"
+    p = "UserTokenPass123!"
+
+    reg = client.post("/v1/auth/register", json={"username": u, "password": p})
+    assert reg.status_code == 200
+    token = reg.json()["access_token"]
+
+    # Verify standard claims
+    claims = decode_access_token(token)
+    assert claims is not None
+    assert claims["iss"] == "bhashashield-api"
+    assert claims["aud"] == "bhashashield-client"
+    assert claims["sub"] == reg.json()["user"]["id"]
+    assert claims["username"] == u
+    assert "jti" in claims
+    assert claims["exp"] > claims["iat"]
+
+    # Verify access to /v1/auth/me
+    headers = {"Authorization": f"Bearer {token}"}
+    me_res = client.get("/v1/auth/me", headers=headers)
+    assert me_res.status_code == 200
+
+    # Perform logout
+    logout_res = client.post("/v1/auth/logout", headers=headers)
+    assert logout_res.status_code == 200
+    assert logout_res.json()["status"] == "success"
+
+    # Attempt to access /v1/auth/me with revoked token -> must fail 401
+    me_revoked = client.get("/v1/auth/me", headers=headers)
+    assert me_revoked.status_code == 401
+
+
+def test_scans_csv_export_isolation():
+    unique = uuid.uuid4().hex[:6]
+    u_alice = f"alice_csv_{unique}"
+    u_bob = f"bob_csv_{unique}"
+
+    reg_a = client.post("/v1/auth/register", json={"username": u_alice, "password": "AlicePass123!"})
+    token_a = reg_a.json()["access_token"]
+    headers_a = {"Authorization": f"Bearer {token_a}"}
+
+    reg_b = client.post("/v1/auth/register", json={"username": u_bob, "password": "BobPass456!"})
+    token_b = reg_b.json()["access_token"]
+    headers_b = {"Authorization": f"Bearer {token_b}"}
+
+    # Alice creates a scan
+    scan_a = client.post("/v1/analyze", json={
+        "text": f"Alice proprietary dataset report {unique}",
+        "channel": "General Text",
+        "save_to_history": True
+    }, headers=headers_a).json()["scan_id"]
+
+    # Bob creates a scan
+    scan_b = client.post("/v1/analyze", json={
+        "text": f"Bob classified research notes {unique}",
+        "channel": "General Text",
+        "save_to_history": True
+    }, headers=headers_b).json()["scan_id"]
+
+    # Alice exports CSV
+    csv_a = client.get("/v1/scans/export/csv", headers=headers_a)
+    assert csv_a.status_code == 200
+    assert "text/csv" in csv_a.headers["content-type"]
+    assert scan_a in csv_a.text
+    assert scan_b not in csv_a.text  # Isolated
+
+    # Bob exports CSV
+    csv_b = client.get("/v1/scans/export/csv", headers=headers_b)
+    assert csv_b.status_code == 200
+    assert scan_b in csv_b.text
+    assert scan_a not in csv_b.text  # Isolated
+
+
+def test_auth_rate_limiting_and_brute_force_lockout():
+    from app.main import (
+        _check_registration_rate_limit,
+        _check_login_rate_limit,
+        _record_failed_login,
+        _reset_failed_logins
+    )
+    from app.config import settings
+    from fastapi import HTTPException
+
+    mock_ip = f"198.51.100.{uuid.uuid4().int % 200 + 10}"
+
+    # Registration rate limit check: after max attempts, must raise 429
+    for _ in range(settings.AUTH_RATE_LIMIT_REGISTER):
+        _check_registration_rate_limit(mock_ip)
+    
+    with pytest.raises(HTTPException) as exc:
+        _check_registration_rate_limit(mock_ip)
+    assert exc.value.status_code == 429
+    assert "Registration rate limit exceeded" in exc.value.detail
+
+    # Login brute force lockout check: after 5 consecutive failed attempts, must raise 429
+    mock_target = f"target_user_{uuid.uuid4().hex[:6]}"
+    for _ in range(settings.AUTH_FAILED_LOGIN_LOCKOUT_ATTEMPTS):
+        _record_failed_login(mock_ip, mock_target)
+
+    with pytest.raises(HTTPException) as exc2:
+        _check_login_rate_limit(mock_ip, mock_target)
+    assert exc2.value.status_code == 429
+    assert "temporarily locked" in exc2.value.detail
+
+    # Resetting failed logins removes lockout
+    _reset_failed_logins(mock_ip, mock_target)
+    _check_login_rate_limit(mock_ip, mock_target)  # No exception
+

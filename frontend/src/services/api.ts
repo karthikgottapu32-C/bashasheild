@@ -227,7 +227,13 @@ export async function getCurrentUser(): Promise<UserProfile> {
   return requestJson<UserProfile>('/v1/auth/me');
 }
 
-export function logoutUser(): void {
-  setAuthToken(null);
-  setStoredUser(null);
+export async function logoutUser(): Promise<void> {
+  try {
+    await requestJson('/v1/auth/logout', { method: 'POST' });
+  } catch {
+    // If offline or network error, complete client-side logout
+  } finally {
+    setAuthToken(null);
+    setStoredUser(null);
+  }
 }

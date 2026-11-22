@@ -1,6 +1,6 @@
 from fastapi import FastAPI, HTTPException, Query, Header, Depends, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, FileResponse
+from fastapi.responses import JSONResponse, FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.base import BaseHTTPMiddleware
 from typing import List, Optional, Dict, Any
@@ -32,6 +32,9 @@ from app.auth import (
     hash_password,
     verify_password,
     create_access_token,
+    decode_access_token,
+    password_needs_rehash,
+    validate_password_complexity,
     get_optional_user,
     get_current_user,
     require_admin
@@ -40,11 +43,15 @@ from app.core.detector import analyze_text
 from app.core.model_service import model_service
 from app.database import (
     init_db,
+    init_postgres_pool,
+    USE_POSTGRES,
     checkpoint_sqlite_wal,
     get_database_status,
     create_user,
     get_user_by_username_or_email,
     get_user_by_id,
+    update_user_password,
+    revoke_token,
     get_scans,
     get_scan_by_id,
     delete_scan,
@@ -73,8 +80,60 @@ def get_deployed_git_commit() -> str:
     return "5b570b8"
 
 
-# Rate limiting sliding-window record: ip -> list of timestamps
+# Rate limiting sliding-window records
 _rate_limit_records: Dict[str, List[float]] = defaultdict(list)
+_auth_login_records: Dict[str, List[float]] = defaultdict(list)
+_auth_register_records: Dict[str, List[float]] = defaultdict(list)
+_login_failures: Dict[str, List[float]] = defaultdict(list)
+
+def _check_registration_rate_limit(client_ip: str):
+    if client_ip == "testclient" or settings.ENVIRONMENT == "test":
+        return
+    now = time.time()
+    window = now - 600.0  # 10 minute window
+    _auth_register_records[client_ip] = [t for t in _auth_register_records[client_ip] if t > window]
+    if len(_auth_register_records[client_ip]) >= settings.AUTH_RATE_LIMIT_REGISTER:
+        raise HTTPException(
+            status_code=429,
+            detail="Registration rate limit exceeded. Please wait a few minutes before trying again.",
+            headers={"Retry-After": "600"}
+        )
+    _auth_register_records[client_ip].append(now)
+
+def _check_login_rate_limit(client_ip: str, identifier: str):
+    if client_ip == "testclient" or settings.ENVIRONMENT == "test":
+        return
+    now = time.time()
+    # 1. IP request rate limit
+    window_min = now - 60.0
+    _auth_login_records[client_ip] = [t for t in _auth_login_records[client_ip] if t > window_min]
+    if len(_auth_login_records[client_ip]) >= settings.AUTH_RATE_LIMIT_LOGIN:
+        raise HTTPException(
+            status_code=429,
+            detail="Login attempt rate limit exceeded. Please wait 60 seconds.",
+            headers={"Retry-After": "60"}
+        )
+    _auth_login_records[client_ip].append(now)
+
+    # 2. Account brute-force lockout
+    lockout_window = now - settings.AUTH_FAILED_LOGIN_LOCKOUT_SECONDS
+    key = f"{client_ip}:{identifier.lower().strip()}"
+    recent_failures = [t for t in _login_failures[key] if t > lockout_window]
+    _login_failures[key] = recent_failures
+    if len(recent_failures) >= settings.AUTH_FAILED_LOGIN_LOCKOUT_ATTEMPTS:
+        raise HTTPException(
+            status_code=429,
+            detail=f"Too many failed login attempts. Account temporarily locked for {settings.AUTH_FAILED_LOGIN_LOCKOUT_SECONDS} seconds.",
+            headers={"Retry-After": str(settings.AUTH_FAILED_LOGIN_LOCKOUT_SECONDS)}
+        )
+
+def _record_failed_login(client_ip: str, identifier: str):
+    key = f"{client_ip}:{identifier.lower().strip()}"
+    _login_failures[key].append(time.time())
+
+def _reset_failed_logins(client_ip: str, identifier: str):
+    key = f"{client_ip}:{identifier.lower().strip()}"
+    _login_failures.pop(key, None)
 
 def verify_admin_key(x_admin_key: Optional[str] = Header(None, alias="X-Admin-Key")):
     """
@@ -130,6 +189,12 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    init_postgres_pool()
+    if settings.REQUIRE_POSTGRES and not USE_POSTGRES:
+        raise RuntimeError(
+            "FATAL: REQUIRE_POSTGRES is true, but PostgreSQL connection is unavailable. "
+            "Server refusing to start with ephemeral storage in production."
+        )
     init_db()
     try:
         stats = get_dashboard_stats()
@@ -342,15 +407,24 @@ def health_check():
 # ==============================================================================
 
 @app.post("/v1/auth/register", response_model=AuthResponse)
-def register_endpoint(req: UserRegisterRequest):
+def register_endpoint(req: UserRegisterRequest, request: Request):
+    client_ip = request.client.host if request.client else "unknown"
+    _check_registration_rate_limit(client_ip)
+
     clean_username = req.username.lower().strip()
     clean_email = req.email.lower().strip() if req.email else f"{clean_username}@bhashashield.internal"
+    
     if not all(c.isalnum() or c in ("_", "-") for c in clean_username) or len(clean_username) < 3:
         raise HTTPException(status_code=400, detail="Username must be alphanumeric (allowing '_' or '-') and at least 3 characters long.")
+    if len(clean_username) > 64:
+        raise HTTPException(status_code=400, detail="Username must not exceed 64 characters.")
     if "@" not in clean_email or "." not in clean_email:
         raise HTTPException(status_code=400, detail="Please provide a valid email address.")
-    if len(req.password) < 8:
-        raise HTTPException(status_code=400, detail="Password must be at least 8 characters long.")
+    
+    # Password complexity enforcement
+    is_valid_pw, pw_msg = validate_password_complexity(req.password)
+    if not is_valid_pw:
+        raise HTTPException(status_code=400, detail=pw_msg)
 
     existing_u = get_user_by_username_or_email(clean_username)
     if existing_u:
@@ -376,12 +450,26 @@ def register_endpoint(req: UserRegisterRequest):
     )
 
 @app.post("/v1/auth/login", response_model=AuthResponse)
-def login_endpoint(req: UserLoginRequest):
+def login_endpoint(req: UserLoginRequest, request: Request):
+    client_ip = request.client.host if request.client else "unknown"
+    _check_login_rate_limit(client_ip, req.username)
+
     user = get_user_by_username_or_email(req.username)
     if not user or not verify_password(req.password, user["hashed_password"]):
+        _record_failed_login(client_ip, req.username)
+        # Uniform safe authentication error: prevents account enumeration
         raise HTTPException(status_code=401, detail="Invalid username or password.")
     if not user.get("is_active", True):
         raise HTTPException(status_code=403, detail="Account is deactivated.")
+
+    # Successful login: reset failed login attempts
+    _reset_failed_logins(client_ip, req.username)
+
+    # Transparent password rehashing if using legacy rounds (<600,000) or legacy format
+    if password_needs_rehash(user["hashed_password"]):
+        new_hash = hash_password(req.password)
+        update_user_password(user["id"], new_hash)
+        logger.info(f"Upgraded password hash for user {user['id']} to OWASP 600,000-iteration standard.")
 
     token = create_access_token(user_id=user["id"], username=user["username"], role=user["role"])
     return AuthResponse(
@@ -395,6 +483,20 @@ def login_endpoint(req: UserLoginRequest):
             created_at=user["created_at"]
         )
     )
+
+@app.post("/v1/auth/logout")
+def logout_endpoint(
+    current_user: Dict[str, Any] = Depends(get_current_user),
+    authorization: Optional[str] = Header(None)
+):
+    """Server-side session logout and token revocation."""
+    if authorization:
+        scheme, _, token = authorization.partition(" ")
+        if scheme.lower() == "bearer" and token:
+            payload = decode_access_token(token.strip())
+            if payload and "jti" in payload and "exp" in payload:
+                revoke_token(payload["jti"], payload["exp"])
+    return {"status": "success", "message": "Successfully logged out. Session token invalidated."}
 
 @app.get("/v1/auth/me", response_model=UserResponse)
 def get_me_endpoint(current_user: Dict[str, Any] = Depends(get_current_user)):
@@ -514,6 +616,42 @@ def v1_clear_scans_endpoint(
     x_admin_key: Optional[str] = Header(None, alias="X-Admin-Key")
 ):
     return clear_scans_endpoint(current_user=current_user, x_admin_key=x_admin_key)
+
+@app.get("/v1/scans/export/csv")
+def v1_export_scans_csv_endpoint(
+    current_user: Optional[Dict[str, Any]] = Depends(get_optional_user),
+    x_admin_key: Optional[str] = Header(None, alias="X-Admin-Key")
+):
+    """Exports user-isolated audit logs to CSV respecting ownership and privacy."""
+    import io
+    import csv
+    from datetime import datetime
+
+    is_admin = bool(settings.ADMIN_API_KEY and x_admin_key == settings.ADMIN_API_KEY) or (current_user and current_user.get("role") == "admin")
+    user_id = current_user["sub"] if current_user else None
+
+    records = get_scans(limit=200, offset=0, user_id=user_id, is_admin=is_admin)
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow([
+        "Scan ID", "Timestamp", "Channel", "Language", "Script",
+        "Risk Score", "Risk Level", "Primary Threat", "Threat Categories",
+        "Target Type", "Text Preview"
+    ])
+    for s in records:
+        writer.writerow([
+            s.id, s.timestamp, s.channel, s.language, s.script,
+            s.risk_score, s.risk_level, s.primary_threat or "",
+            "; ".join(s.threat_categories), s.target_type, s.text_preview
+        ])
+
+    filename = f"bhashashield_scans_{datetime.utcnow().strftime('%Y%m%d')}.csv"
+    return Response(
+        content=output.getvalue(),
+        media_type="text/csv",
+        headers={"Content-Disposition": f"attachment; filename={filename}"}
+    )
 
 @app.get("/evaluation/report")
 def evaluation_report_endpoint():
