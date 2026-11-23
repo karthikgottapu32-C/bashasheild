@@ -32,6 +32,8 @@ def test_security_headers_present():
     assert resp.headers.get("x-xss-protection") == "1; mode=block"
     assert "max-age=" in resp.headers.get("strict-transport-security", "")
     assert resp.headers.get("referrer-policy") == "strict-origin-when-cross-origin"
+    assert "default-src 'self'" in resp.headers.get("content-security-policy", "")
+    assert "frame-ancestors 'none'" in resp.headers.get("content-security-policy", "")
 
 def test_payload_size_enforcement():
     """Verify payloads exceeding 1MB are rejected with HTTP 413 Payload Too Large."""
