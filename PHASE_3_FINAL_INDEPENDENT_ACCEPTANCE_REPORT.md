@@ -2,8 +2,9 @@
 **Date & Time:** 2026-11-23T14:25:00+05:30  
 **Repository:** [github.com/karthikgottapu32-C/bashasheild](https://github.com/karthikgottapu32-C/bashasheild)  
 **Branch:** `main`  
-**Current GitHub main Commit:** `de947e03ec8a69b15d61a7c64ebc256e8cf9f6f7`  
-**Verified Live Production Commit:** `de947e03ec8a69b15d61a7c64ebc256e8cf9f6f7`  
+**Current GitHub main Commit:** `22b2a4c0eb3c4f2bb72b683cf445cbf92b005eef` (contains acceptance documentation)  
+**Code & Logic Tested Commit:** `de947e03ec8a69b15d61a7c64ebc256e8cf9f6f7`  
+**Verified Live Production Commit:** `de947e03ec8a69b15d61a7c64ebc256e8cf9f6f7` (and deploying `22b2a4c`)  
 **Live Production URL:** `https://bhashashield-api.onrender.com`  
 **Health Check Endpoint:** `https://bhashashield-api.onrender.com/v1/health`  
 **Database Backend:** Supabase PostgreSQL (`aws-1-ap-south-1.pooler.supabase.com`)  
