@@ -1,0 +1,124 @@
+{
+  "health": {
+    "status_code": 200,
+    "commit": "bf4c356b9afb48772320f2d7e948fd34f5289b8e",
+    "backend": "postgresql",
+    "persistence_mode": "durable_managed_cloud",
+    "total_scans": 46,
+    "status": "PASS"
+  },
+  "auth": {
+    "reg_a_status": 200,
+    "reg_b_status": 200,
+    "login_a_status": 200,
+    "token_issued": true,
+    "status": "PASS"
+  },
+  "scanner": {
+    "english_pi": {
+      "status_code": 200,
+      "expected": "MALICIOUS",
+      "actual": "MALICIOUS",
+      "risk_score": 85.0,
+      "threats": [
+        "PROMPT_INJECTION"
+      ],
+      "status": "PASS"
+    },
+    "hindi_pi": {
+      "status_code": 200,
+      "expected": "MALICIOUS",
+      "actual": "MALICIOUS",
+      "risk_score": 73.5,
+      "threats": [
+        "PROMPT_INJECTION"
+      ],
+      "status": "PASS"
+    },
+    "telugu_pi": {
+      "status_code": 200,
+      "expected": "MALICIOUS",
+      "actual": "MALICIOUS",
+      "risk_score": 85.0,
+      "threats": [
+        "PROMPT_INJECTION"
+      ],
+      "status": "PASS"
+    },
+    "romanized_telugu_pi": {
+      "status_code": 200,
+      "expected": "MALICIOUS",
+      "actual": "MALICIOUS",
+      "risk_score": 85.0,
+      "threats": [
+        "DATA_EXFILTRATION",
+        "PROMPT_INJECTION"
+      ],
+      "status": "PASS"
+    },
+    "romanized_hindi_pi": {
+      "status_code": 200,
+      "expected": "MALICIOUS",
+      "actual": "MALICIOUS",
+      "risk_score": 72.1,
+      "threats": [
+        "PROMPT_INJECTION"
+      ],
+      "status": "PASS"
+    },
+    "english_benign": {
+      "status_code": 200,
+      "expected": "BENIGN",
+      "actual": "BENIGN",
+      "risk_score": 0.0,
+      "threats": [
+        "BENIGN"
+      ],
+      "status": "PASS"
+    },
+    "hindi_benign": {
+      "status_code": 200,
+      "expected": "BENIGN",
+      "actual": "BENIGN",
+      "risk_score": 0.0,
+      "threats": [
+        "BENIGN"
+      ],
+      "status": "PASS"
+    }
+  },
+  "customization": {
+    "status": "PASS",
+    "te_output_lang": "te",
+    "te_immutability": true,
+    "hi_output_lang": "hi",
+    "hi_immutability": true
+  },
+  "evaluation": {
+    "datasets": [
+      "holdout_v2",
+      "benchmark_v3",
+      "synthetic_test"
+    ],
+    "holdout_samples": 100,
+    "confusion_matrix": {
+      "true_positives": 44,
+      "false_positives": 0,
+      "false_negatives": 6,
+      "true_negatives": 47,
+      "malicious_abstentions": 6,
+      "benign_abstentions": 3,
+      "total_abstentions": 9
+    },
+    "unauthorized_run_status": 401,
+    "status": "PASS"
+  },
+  "isolation_and_persistence": {
+    "created_scan_id": "BS-27C56A516E",
+    "owner_fetch_status": 200,
+    "non_owner_fetch_status": 404,
+    "found_in_user_a": true,
+    "absent_in_user_b": true,
+    "status": "PASS"
+  }
+}
