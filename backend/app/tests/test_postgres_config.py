@@ -1,14 +1,24 @@
 import os
 import pytest
 from unittest.mock import patch, MagicMock
-from backend.app.database import (
-    parse_postgres_dsn,
-    _sanitize_error,
-    _classify_pg_error,
-    get_database_status,
-    init_postgres_pool
-)
-from backend.app.config import settings
+try:
+    from app.database import (
+        parse_postgres_dsn,
+        _sanitize_error,
+        _classify_pg_error,
+        get_database_status,
+        init_postgres_pool
+    )
+    from app.config import settings
+except ImportError:
+    from backend.app.database import (
+        parse_postgres_dsn,
+        _sanitize_error,
+        _classify_pg_error,
+        get_database_status,
+        init_postgres_pool
+    )
+    from backend.app.config import settings
 
 def test_parse_postgres_dsn_supabase_session_pooler():
     """Verify parsing of Supabase Session Pooler URL with project-scoped username."""

@@ -43,7 +43,11 @@ def test_evaluation_report_dataset_query():
     assert "confusion_matrix" in data
     assert "clean_pass_rate" in data
     assert data["confusion_matrix"]["true_positives"] == 44
-    assert data["confusion_matrix"]["true_negatives"] == 50
+    assert data["confusion_matrix"]["true_negatives"] == 47
+    assert data["confusion_matrix"]["benign_abstentions"] == 3
+    assert data["confusion_matrix"]["malicious_abstentions"] == 6
+    assert data["confusion_matrix"]["total_abstentions"] == 9
+    assert data["clean_pass_rate"] == 0.94
 
 def test_evaluation_run_with_admin_auth():
     admin_token = create_access_token("test-admin", "admin_user", "admin")

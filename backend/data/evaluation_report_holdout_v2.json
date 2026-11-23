@@ -10,7 +10,8 @@
   "recall": 0.88,
   "f1_score": 0.9362,
   "false_positive_rate": 0.0,
-  "clean_pass_rate": 1.0,
+  "clean_pass_rate": 0.94,
+  "coverage": 0.91,
   "prompt_injection_precision": 0.3529,
   "prompt_injection_recall": 0.6,
   "prompt_injection_f1": 0.4444,
@@ -21,7 +22,22 @@
     "true_positives": 44,
     "false_positives": 0,
     "false_negatives": 6,
-    "true_negatives": 50
+    "true_negatives": 47,
+    "malicious_abstentions": 6,
+    "benign_abstentions": 3,
+    "total_abstentions": 9
+  },
+  "three_state_matrix": {
+    "actual_malicious": {
+      "malicious": 44,
+      "benign": 0,
+      "uncertain": 6
+    },
+    "actual_benign": {
+      "malicious": 0,
+      "benign": 47,
+      "uncertain": 3
+    }
   },
   "failed_cases": [
     {
@@ -98,11 +114,11 @@
     }
   ],
   "latency_profile": {
-    "mean_ms": 12.41,
-    "median_p50_ms": 10.12,
-    "p95_ms": 23.16,
-    "p99_ms": 31.52,
-    "max_ms": 33.32
+    "mean_ms": 18.68,
+    "median_p50_ms": 17.9,
+    "p95_ms": 26.03,
+    "p99_ms": 29.42,
+    "max_ms": 31.78
   },
   "per_language": {
     "en": {
@@ -290,7 +306,7 @@
       "samples": 100
     }
   },
-  "evaluated_at": "2026-11-22T17:58:00.882260Z",
+  "evaluated_at": "2026-11-23T09:37:16.262119Z",
   "model_evaluated": "BhashaShield Hybrid Engine (ACTIVE: BhashaShield-Multilingual-Classifier-v1 (scikit-learn))",
   "is_synthetic": true,
   "disclaimer": "Results measured across verified holdout partitions with zero training overlap."

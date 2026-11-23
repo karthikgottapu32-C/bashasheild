@@ -17,12 +17,13 @@ AVAILABLE_DATASETS = {
     "synthetic_test": "synthetic_test.json"
 }
 
-def calculate_prf(tp: int, fp: int, fn: int, tn: int) -> Dict[str, float]:
+def calculate_prf(tp: int, fp: int, fn: int, tn: int, total_benign: Optional[int] = None) -> Dict[str, float]:
     precision = tp / (tp + fp) if (tp + fp) > 0 else 0.0
     recall = tp / (tp + fn) if (tp + fn) > 0 else 0.0
     f1 = (2 * precision * recall) / (precision + recall) if (precision + recall) > 0 else 0.0
     fpr = fp / (fp + tn) if (fp + tn) > 0 else 0.0
-    clean_pass = tn / (tn + fp) if (tn + fp) > 0 else 1.0
+    clean_pass_denom = total_benign if total_benign is not None else (tn + fp)
+    clean_pass = tn / clean_pass_denom if clean_pass_denom > 0 else 1.0
     return {
         "precision": round(precision, 4),
         "recall": round(recall, 4),
@@ -87,6 +88,10 @@ def run_evaluation(
     # Global binary threat detection metrics (Malicious vs Benign)
     tp, fp, fn, tn = 0, 0, 0, 0
     uncertain_count = 0
+    malicious_abstentions = 0
+    benign_abstentions = 0
+    total_malicious = 0
+    total_benign = 0
 
     # Prompt injection specific metrics
     pi_tp, pi_fp, pi_fn, pi_tn = 0, 0, 0, 0
@@ -144,25 +149,17 @@ def run_evaluation(
             res.primary_threat in ("PROMPT_INJECTION", "JAILBREAK", "INSTRUCTION_OVERRIDE")
         ))
 
-        # Global binary confusion counts
-        if actual_malicious and pred_malicious:
-            tp += 1
-        elif not actual_malicious and pred_malicious:
-            fp += 1
-            if len(failed_cases) < 50:
-                failed_cases.append({
-                    "id": sample.get("id", f"SAMPLE-{idx+1}"),
-                    "text_preview": text[:90] + ("..." if len(text) > 90 else ""),
-                    "language": lang,
-                    "ground_truth": "BENIGN",
-                    "predicted": "MALICIOUS",
-                    "error_type": "FALSE_POSITIVE",
-                    "risk_score": res.risk_score,
-                    "threat_categories": res.threat_categories
-                })
-        elif actual_malicious and not pred_malicious:
-            fn += 1
-            if len(failed_cases) < 50:
+        # Global binary confusion counts with three-state awareness
+        if actual_malicious:
+            total_malicious += 1
+            if pred_malicious:
+                tp += 1
+            elif is_uncertain:
+                malicious_abstentions += 1
+                fn += 1  # In security posture, failing to block malicious is a false negative / missed threat
+            else:
+                fn += 1
+            if not pred_malicious and len(failed_cases) < 50:
                 failed_cases.append({
                     "id": sample.get("id", f"SAMPLE-{idx+1}"),
                     "text_preview": text[:90] + ("..." if len(text) > 90 else ""),
@@ -174,7 +171,24 @@ def run_evaluation(
                     "threat_categories": res.threat_categories
                 })
         else:
-            tn += 1
+            total_benign += 1
+            if pred_malicious:
+                fp += 1
+                if len(failed_cases) < 50:
+                    failed_cases.append({
+                        "id": sample.get("id", f"SAMPLE-{idx+1}"),
+                        "text_preview": text[:90] + ("..." if len(text) > 90 else ""),
+                        "language": lang,
+                        "ground_truth": "BENIGN",
+                        "predicted": "MALICIOUS",
+                        "error_type": "FALSE_POSITIVE",
+                        "risk_score": res.risk_score,
+                        "threat_categories": res.threat_categories
+                    })
+            elif is_uncertain:
+                benign_abstentions += 1
+            else:
+                tn += 1  # Strict Benign Clean Pass
 
         # Prompt injection slice
         if is_pi and pred_is_pi:
@@ -201,10 +215,12 @@ def run_evaluation(
                 group_dict[key]["fp"] += 1
             elif actual_malicious and not pred_malicious:
                 group_dict[key]["fn"] += 1
-            else:
+            elif not actual_malicious and not is_uncertain:
                 group_dict[key]["tn"] += 1
+            else:
+                group_dict[key]["abstentions"] = group_dict[key].get("abstentions", 0) + 1
 
-    overall_prf = calculate_prf(tp, fp, fn, tn)
+    overall_prf = calculate_prf(tp, fp, fn, tn, total_benign=total_benign)
     pi_prf = calculate_prf(pi_tp, pi_fp, pi_fn, pi_tn)
 
     def compile_group_metrics(group_dict):
@@ -225,7 +241,8 @@ def run_evaluation(
         "recall": overall_prf["recall"],
         "f1_score": overall_prf["f1_score"],
         "false_positive_rate": overall_prf["false_positive_rate"],
-        "clean_pass_rate": overall_prf["clean_pass_rate"],
+        "clean_pass_rate": round(tn / total_benign, 4) if total_benign > 0 else 1.0,
+        "coverage": round((len(test_samples) - uncertain_count) / len(test_samples), 4) if test_samples else 0.0,
         "prompt_injection_precision": pi_prf["precision"],
         "prompt_injection_recall": pi_prf["recall"],
         "prompt_injection_f1": pi_prf["f1_score"],
@@ -236,7 +253,22 @@ def run_evaluation(
             "true_positives": tp,
             "false_positives": fp,
             "false_negatives": fn,
-            "true_negatives": tn
+            "true_negatives": tn,
+            "malicious_abstentions": malicious_abstentions,
+            "benign_abstentions": benign_abstentions,
+            "total_abstentions": uncertain_count
+        },
+        "three_state_matrix": {
+            "actual_malicious": {
+                "malicious": tp,
+                "benign": fn - malicious_abstentions,
+                "uncertain": malicious_abstentions
+            },
+            "actual_benign": {
+                "malicious": fp,
+                "benign": tn,
+                "uncertain": benign_abstentions
+            }
         },
         "failed_cases": failed_cases,
         "latency_profile": {

@@ -32,7 +32,7 @@ from app.models import (
     CustomizeRecommendationRequest,
     CustomizeRecommendationResponse
 )
-from app.core.explainer import customize_recommendations
+from app.core.explainer import customize_recommendations, generate_explanation_and_actions
 from app.auth import (
     hash_password,
     verify_password,
@@ -196,8 +196,12 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
 
 class RateLimitMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
-        if request.url.path in ("/analyze", "/v1/analyze", "/v1/decision"):
-            client_ip = request.client.host if request.client else "unknown"
+        if request.url.path in ("/analyze", "/v1/analyze", "/v1/scan", "/v1/decision"):
+            forwarded = request.headers.get("x-forwarded-for")
+            if forwarded:
+                client_ip = forwarded.split(",")[0].strip()
+            else:
+                client_ip = request.client.host if request.client else "unknown"
             now = time.time()
             window_start = now - 60.0
             timestamps = [t for t in _rate_limit_records[client_ip] if t > window_start]
@@ -666,6 +670,7 @@ def clear_scans_endpoint(
     return {"status": "success", "cleared_records": count, "message": "Scan history cleared."}
 
 @app.get("/v1/scans", response_model=List[ScanRecord])
+@app.get("/v1/history", response_model=List[ScanRecord])
 def v1_get_scans_endpoint(
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
@@ -780,6 +785,41 @@ def customize_recommendations_endpoint(
         **result
     )
 
+@app.post("/v1/explain")
+@app.post("/explain")
+def v1_explain_endpoint(req: Dict[str, Any]):
+    text = req.get("text", "")
+    lang = req.get("language") or req.get("output_language") or "en"
+    classification = req.get("classification") or "MALICIOUS"
+    risk_score = float(req.get("risk_score") or (80.0 if classification == "MALICIOUS" else 0.0))
+    risk_level = RiskLevel.CRITICAL if risk_score >= 80 else (RiskLevel.LOW if risk_score <= 30 else RiskLevel.MEDIUM)
+    categories = req.get("threat_categories") or (["PROMPT_INJECTION"] if classification == "MALICIOUS" else ["BENIGN"])
+    target_type = TargetType.AI_SYSTEM if "PROMPT_INJECTION" in categories else TargetType.HUMAN_USER
+    style = req.get("style", "actionable")
+    
+    explanation, actions, out_lang, out_style = generate_explanation_and_actions(
+        text=text,
+        language=lang,
+        script="Latin",
+        risk_level=risk_level,
+        risk_score=risk_score,
+        categories=categories,
+        target_type=target_type,
+        rule_findings=[],
+        model_findings=None,
+        output_language=lang,
+        recommendation_style=style,
+        language_code=lang
+    )
+    return {
+        "explanation": explanation,
+        "recommended_actions": actions,
+        "output_language": out_lang,
+        "recommendation_style": out_style,
+        "classification": classification,
+        "risk_score": risk_score
+    }
+
 @app.get("/v1/evaluation/datasets")
 @app.get("/evaluation/datasets")
 def list_evaluation_datasets_endpoint():
@@ -864,10 +904,14 @@ def v1_health_endpoint():
         "model_status": model_service.status,
         "engine": "BhashaShield Enterprise Intelligence Engine",
         "policy_engine": "ACTIVE",
+        "backend": db_status.get("backend", "unknown"),
+        "persistence_mode": db_status.get("persistence_mode", "unknown"),
+        "database_url_configured": db_status.get("database_url_configured", False),
         "database": db_status
     }
 
 @app.post("/v1/analyze", response_model=AnalyzeResponse)
+@app.post("/v1/scan", response_model=AnalyzeResponse)
 def v1_analyze_endpoint(request: AnalyzeRequest, current_user: Optional[Dict[str, Any]] = Depends(get_optional_user)):
     """
     V1 Full Threat Analysis: normalizes input, runs regex rule catalog,
